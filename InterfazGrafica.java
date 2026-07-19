@@ -1,6 +1,8 @@
 import java.awt.*;
 import java.awt.event.*;
 import java.io.*;
+import java.util.ArrayList;
+import java.util.List;
 import javax.swing.*;
 
 public class InterfazGrafica extends JFrame implements ActionListener {
@@ -8,6 +10,9 @@ public class InterfazGrafica extends JFrame implements ActionListener {
     private DefaultListModel<String> modeloLista;
     private JTextArea areaTexto;
     private JButton btnAnalizar, btnEjecutar, btnLimpiar, btnGuardar;
+    private PanelAutomata panelAutomata; // Panel para mostrar el automata graficado
+    private List<String> lineasAnalizadas; // Líneas que se muestran en el JList
+    private Automata automataActual; // Automata construido por la línea seleccionada
 
     public InterfazGrafica() {
         setTitle("Lenguaje en español - Analizador de Pseudocódigo");
@@ -32,6 +37,13 @@ public class InterfazGrafica extends JFrame implements ActionListener {
         lista = new JList<>(modeloLista);
         lista.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         lista.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+
+        // Cuando el usuario cambia de selección se actualiza el panel del autómata
+        lista.addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting()) {
+                actualizarAutomataSeleccionado();
+            }
+        });
 
         JScrollPane scrollLista = new JScrollPane(lista);
         scrollLista.setBounds(30, 80, 160, 220);
@@ -75,6 +87,14 @@ public class InterfazGrafica extends JFrame implements ActionListener {
         scrollArea.setBounds(410, 20, 400, 280);
         panel.add(scrollArea);
 
+        // Se crea el panel del automata y se agrega a la interfaz
+        panelAutomata = new PanelAutomata();
+        panelAutomata.setBounds(30, 320, 780, 330);
+        panel.add(panelAutomata);
+
+        lineasAnalizadas = new ArrayList<>();
+        automataActual = null;
+
         add(panel);
     }
 
@@ -96,14 +116,58 @@ public class InterfazGrafica extends JFrame implements ActionListener {
     // ----------------------------------------------------
 
     private void accionAnalizar() {
+        String texto = areaTexto.getText().trim();
+        if (texto.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Escribe al menos una línea antes de analizar.", "Advertencia", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        // Limpiamos las lineas del texto anterior para analizar el nuevo
+        modeloLista.clear();
+        lineasAnalizadas.clear();
+        automataActual = null;
+
+        String[] lineas = texto.split("\\r?\\n");
+        for (int i = 0; i < lineas.length; i++) {
+            String linea = lineas[i].trim();
+            if (linea.isEmpty()) {
+                continue;
+            }
+            // Guardamos solo la línea; el automata se crea cuando se selecciona
+            lineasAnalizadas.add(linea);
+            modeloLista.addElement("Línea " + (i + 1) + ": " + linea);
+        }
+
+        if (lineasAnalizadas.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "No hay líneas válidas para analizar.", "Advertencia", JOptionPane.WARNING_MESSAGE);
+            panelAutomata.setAutomata(null);
+            return;
+        }
+
+        // Seleccionamos la primera línea para que se construya y muestre su automata
+        lista.setSelectedIndex(0);
     }
 
     private void accionEjecutar() {
+        JOptionPane.showMessageDialog(this, "Función Ejecutar no implementada aún.", "Información", JOptionPane.INFORMATION_MESSAGE);
     }
 
     private void accionLimpiar() {
         areaTexto.setText("");
         modeloLista.clear();
+        panelAutomata.setAutomata(null);
+    }
+
+    private void actualizarAutomataSeleccionado() {
+        // Construye y muestra el autómata
+        int index = lista.getSelectedIndex();
+        if (index >= 0 && index < lineasAnalizadas.size()) {
+            String linea = lineasAnalizadas.get(index);
+            automataActual = new Automata(linea); // crear aquí el objeto Automata
+            panelAutomata.setAutomata(automataActual);
+        } else {
+            panelAutomata.setAutomata(null);
+        }
     }
 
     private void accionGuardar() {
