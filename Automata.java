@@ -40,9 +40,9 @@ public class Automata {
             tipoDFA = "Numero";
             construirDFANumero();
             ejecutarDFA(tokens);
-        }else if (primerToken.equals("Cadena")) {
+        } else if (primerToken.equals("Cadena")) {
             tipoDFA = "Cadena";
-            construirDFASi();
+            construirDFACadena();
             ejecutarDFA(tokens);
         } else if (primerToken.equals("Si")) {
             tipoDFA = "Si";
@@ -52,9 +52,17 @@ public class Automata {
             tipoDFA = "SiNo";
             construirDFASiNo();
             ejecutarDFA(tokens);
-        }else if (primerToken.equals("Mientras")) {
+        } else if (primerToken.equals("Mientras")) {
             tipoDFA = "Mientras";
             construirDFAMientras();
+            ejecutarDFA(tokens);
+        } else if (primerToken.equals("Para")) {
+            tipoDFA = "Para";
+            construirDFAPara();
+            ejecutarDFA(tokens);
+        } else if (primerToken.equals("Logico")) {
+            tipoDFA = "Logico";
+            construirDFALogico();
             ejecutarDFA(tokens);
         } else {
             tipoDFA = "Desconocido";
@@ -65,8 +73,8 @@ public class Automata {
 
     private List<String> tokenizar(String linea) {
         List<String> tokens = new ArrayList<>();
-        // Expresión regular para separar palabras clave, operadores relacionales, números, variables, paréntesis y asignación
-        Pattern pattern = Pattern.compile("Numero|Cadena|SiNo|Si|Mientras|\"[^\"]*\"|[a-zA-Z_][a-zA-Z0-9_]*|-?\\d+(\\.\\d+)?|==|!=|<=|>=|<|>|=|\\(|\\)|\\S");
+        // Expresión regular para separar palabras clave, operadores relacionales, números, variables, paréntesis, asignación y signos de puntuación
+        Pattern pattern = Pattern.compile("Numero|Cadena|SiNo|Si|Mientras|Para|Hasta|Hacer|Logico|verdadero|vardadero|falso|y|o|\"[^\"]*\"|[a-zA-Z_][a-zA-Z0-9_]*|-?\\d+(\\.\\d+)?|==|!=|<=|>=|<|>|=|\\(|\\)|:|\\S", Pattern.CASE_INSENSITIVE);
         Matcher matcher = pattern.matcher(linea);
         while (matcher.find()) {
             tokens.add(matcher.group());
@@ -75,23 +83,85 @@ public class Automata {
     }
 
     private String clasificarToken(String token) {
-        if (token.equals("Numero")) return "Numero";
-        if (token.equals("Cadena")) return "Cadena";
-        if (token.equals("Si")) return "Si";
-        if (token.equals("SiNo")) return "SiNo";
-        if (token.equals("Mientras")) return "Mientras";
-        if (token.equals("=")) return "=";
-        if (token.equals("(")) return "(";
-        if (token.equals(")")) return ")";
-        if (token.equals("<") || token.equals(">") || token.equals("<=") || token.equals(">=")) return "relacion";
-        if (token.matches("-?\\d+(\\.\\d+)?")) return "NumeroLiteral";
-        if (token.matches("[a-zA-Z_][a-zA-Z0-9_]*")) return "id";
+        String valor = token.trim();
+        String lower = valor.toLowerCase();
+
+        if (lower.equals("numero")) return "Numero";
+        if (lower.equals("cadena")) return "Cadena";
+        if (lower.equals("si")) return "Si";
+        if (lower.equals("sino")) return "SiNo";
+        if (lower.equals("mientras")) return "Mientras";
+        if (lower.equals("para")) return "Para";
+        if (lower.equals("hasta")) return "Hasta";
+        if (lower.equals("hacer")) return "Hacer";
+        if (lower.equals("logico")) return "Logico";
+        if (lower.equals("verdadero") || lower.equals("vardadero")) return "BooleanLiteral";
+        if (lower.equals("falso")) return "BooleanLiteral";
+        if (lower.equals("y") || lower.equals("o")) return lower;
+        if (valor.equals("=")) return "=";
+        if (valor.equals("(")) return "(";
+        if (valor.equals(")")) return ")";
+        if (valor.equals(":")) return ":";
+        if (valor.equals("<") || valor.equals(">") || valor.equals("<=") || valor.equals(">=")) return "relacion";
+        if (valor.matches("-?\\d+(\\.\\d+)?")) return "NumeroLiteral";
+        if (valor.matches("[a-zA-Z_][a-zA-Z0-9_]*")) return "id";
         return "desconocido";
     }
 
     // ----------------------------------------------------
     // CONSTRUCCIÓN DE LOS AUTÓMATAS (ESTADOS Y TRANSICIONES)
     // ----------------------------------------------------
+
+    private void construirDFAPara() {
+        Estado p0 = new Estado("p0", true, false, false, 60, 120);
+        Estado p1 = new Estado("p1", false, false, false, 150, 120);
+        Estado p2 = new Estado("p2", false, false, false, 240, 120);
+        Estado p3 = new Estado("p3", false, false, false, 330, 120);
+        Estado p4 = new Estado("p4", false, false, false, 420, 120);
+        Estado p5 = new Estado("p5", false, false, false, 510, 120);
+        Estado p6 = new Estado("p6", false, true, false, 600, 120); // Aceptación
+        Estado pe = new Estado("pe", false, false, true, 330, 220); // Error
+
+        estados.add(p0);
+        estados.add(p1);
+        estados.add(p2);
+        estados.add(p3);
+        estados.add(p4);
+        estados.add(p5);
+        estados.add(p6);
+        estados.add(pe);
+
+        transiciones.add(new Transicion(p0, p1, "Para"));
+        transiciones.add(new Transicion(p1, p2, "NumeroLiteral"));
+        transiciones.add(new Transicion(p1, p2, "id"));
+        transiciones.add(new Transicion(p2, p3, "Hasta"));
+        transiciones.add(new Transicion(p3, p4, "NumeroLiteral"));
+        transiciones.add(new Transicion(p3, p4, "id"));
+        transiciones.add(new Transicion(p4, p5, "Hacer"));
+        transiciones.add(new Transicion(p5, p6, ":"));
+        transiciones.add(new Transicion(p5, p6, ""));
+    }
+
+    private void construirDFALogico() {
+        Estado l0 = new Estado("l0", true, false, false, 80, 120);
+        Estado l1 = new Estado("l1", false, false, false, 180, 120);
+        Estado l2 = new Estado("l2", false, false, false, 280, 120);
+        Estado l3 = new Estado("l3", false, false, false, 380, 120);
+        Estado l4 = new Estado("l4", false, true, false, 480, 120); // Aceptación
+        Estado le = new Estado("le", false, false, true, 280, 220); // Error
+
+        estados.add(l0);
+        estados.add(l1);
+        estados.add(l2);
+        estados.add(l3);
+        estados.add(l4);
+        estados.add(le);
+
+        transiciones.add(new Transicion(l0, l1, "Logico"));
+        transiciones.add(new Transicion(l1, l2, "id"));
+        transiciones.add(new Transicion(l2, l3, "="));
+        transiciones.add(new Transicion(l3, l4, "BooleanLiteral"));
+    }
 
     private void construirDFANumero() {
         // q0 (inicio) -> q1 (Numero) -> q2 (id) -> q3 (=) -> q4 (valor/id)
