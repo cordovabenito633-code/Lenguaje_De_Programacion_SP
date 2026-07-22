@@ -40,6 +40,10 @@ public class Automata {
             tipoDFA = "Numero";
             construirDFANumero();
             ejecutarDFA(tokens);
+        }else if (primerToken.equals("Cadena")) {
+            tipoDFA = "Cadena";
+            construirDFASi();
+            ejecutarDFA(tokens);
         } else if (primerToken.equals("Si")) {
             tipoDFA = "Si";
             construirDFASi();
@@ -47,6 +51,10 @@ public class Automata {
         } else if (primerToken.equals("SiNo")) {
             tipoDFA = "SiNo";
             construirDFASiNo();
+            ejecutarDFA(tokens);
+        }else if (primerToken.equals("Mientras")) {
+            tipoDFA = "Mientras";
+            construirDFAMientras();
             ejecutarDFA(tokens);
         } else {
             tipoDFA = "Desconocido";
@@ -58,7 +66,7 @@ public class Automata {
     private List<String> tokenizar(String linea) {
         List<String> tokens = new ArrayList<>();
         // Expresión regular para separar palabras clave, operadores relacionales, números, variables, paréntesis y asignación
-        Pattern pattern = Pattern.compile("Numero|SiNo|Si|[a-zA-Z_][a-zA-Z0-9_]*|-?\\d+(\\.\\d+)?|<=|>=|<|>|=|\\(|\\)|\\S");
+        Pattern pattern = Pattern.compile("Numero|Cadena|SiNo|Si|Mientras|\"[^\"]*\"|[a-zA-Z_][a-zA-Z0-9_]*|-?\\d+(\\.\\d+)?|==|!=|<=|>=|<|>|=|\\(|\\)|\\S");
         Matcher matcher = pattern.matcher(linea);
         while (matcher.find()) {
             tokens.add(matcher.group());
@@ -68,8 +76,10 @@ public class Automata {
 
     private String clasificarToken(String token) {
         if (token.equals("Numero")) return "Numero";
+        if (token.equals("Cadena")) return "Cadena";
         if (token.equals("Si")) return "Si";
         if (token.equals("SiNo")) return "SiNo";
+        if (token.equals("Mientras")) return "Mientras";
         if (token.equals("=")) return "=";
         if (token.equals("(")) return "(";
         if (token.equals(")")) return ")";
@@ -105,7 +115,70 @@ public class Automata {
         transiciones.add(new Transicion(q3, q4, "NumeroLiteral"));
         transiciones.add(new Transicion(q3, q4, "id"));
     }
+    private void construirDFACadena() {
+        // c0 (inicio) -> c1 (cadena) -> c2 (id) -> c3 (=) -> c4 (CadenaLiteral)
+        Estado c0 = new Estado("c0", true, false, false, 50, 100);
+        Estado c1 = new Estado("c1", false, false, false, 170, 100);
+        Estado c2 = new Estado("c2", false, false, false, 290, 100);
+        Estado c3 = new Estado("c3", false, false, false, 410, 100);
+        Estado c4 = new Estado("c4", false, true, false, 530, 100); // Estado de Aceptación
+        Estado ce = new Estado("ce", false, false, true, 290, 220); // Estado de Error
 
+        estados.add(c0);
+        estados.add(c1);
+        estados.add(c2);
+        estados.add(c3);
+        estados.add(c4);
+        estados.add(ce);
+
+        transiciones.add(new Transicion(c0, c1, "cadena"));
+        transiciones.add(new Transicion(c1, c2, "id"));
+        transiciones.add(new Transicion(c2, c3, "="));
+        transiciones.add(new Transicion(c3, c4, "CadenaLiteral"));
+        transiciones.add(new Transicion(c3, c4, "id")); // También permite asignar otra variable
+    }
+    private void construirDFAMientras() {
+        // m0 (inicio) -> m1 (mientras) -> m2 (() -> m3 (izq) -> m4 (relacion/igual/diferente) -> m5 (der) -> m6 ())
+        Estado m0 = new Estado("m0", true, false, false, 50, 100);
+        Estado m1 = new Estado("m1", false, false, false, 130, 100);
+        Estado m2 = new Estado("m2", false, false, false, 210, 100);
+        Estado m3 = new Estado("m3", false, false, false, 290, 100);
+        Estado m4 = new Estado("m4", false, false, false, 370, 100);
+        Estado m5 = new Estado("m5", false, false, false, 450, 100);
+        Estado m6 = new Estado("m6", false, true, false, 530, 100); // Estado de Aceptación
+        Estado me = new Estado("me", false, false, true, 290, 200);  // Estado de Error
+
+        estados.add(m0);
+        estados.add(m1);
+        estados.add(m2);
+        estados.add(m3);
+        estados.add(m4);
+        estados.add(m5);
+        estados.add(m6);
+        estados.add(me);
+
+        // Inicio y apertura de paréntesis
+        transiciones.add(new Transicion(m0, m1, "mientras"));
+        transiciones.add(new Transicion(m1, m2, "("));
+
+        // Lado izquierdo de la condición (m2 -> m3)
+        transiciones.add(new Transicion(m2, m3, "id"));
+        transiciones.add(new Transicion(m2, m3, "NumeroLiteral"));
+        transiciones.add(new Transicion(m2, m3, "CadenaLiteral"));
+
+        // Operadores relacionales y de igualdad/desigualdad (m3 -> m4)
+        transiciones.add(new Transicion(m3, m4, "relacion"));
+        transiciones.add(new Transicion(m3, m4, "es igual a"));
+        transiciones.add(new Transicion(m3, m4, "es diferente a"));
+
+        // Lado derecho de la condición (m4 -> m5)
+        transiciones.add(new Transicion(m4, m5, "id"));
+        transiciones.add(new Transicion(m4, m5, "NumeroLiteral"));
+        transiciones.add(new Transicion(m4, m5, "CadenaLiteral"));
+
+        // Cierre de paréntesis
+        transiciones.add(new Transicion(m5, m6, ")"));
+    }
     private void construirDFASi() {
         // s0 (inicio) -> s1 (Si) -> s2_par (abrió paréntesis) o s2_nopar (id/número)
         Estado s0 = new Estado("s0", true, false, false, 50, 120);
