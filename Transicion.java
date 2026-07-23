@@ -1,20 +1,21 @@
-
-package com.mycompany.lenguaje;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
+
 public class Transicion {
 
     private final Estado origen;
     private final Estado destino;
     private final String etiqueta;
+
     public Transicion(Estado origen, Estado destino, String etiqueta) {
         this.origen = origen;
         this.destino = destino;
         this.etiqueta = etiqueta;
     }
+
     public void dibujado(Graphics2D g2d, boolean visitada, boolean esValida) {
         int x1 = origen.getX();
         int y1 = origen.getY();
@@ -26,7 +27,7 @@ public class Transicion {
         double dist = Math.sqrt(dx * dx + dy * dy);
         if (dist == 0) {
             return;
-   }
+        }
 
         double ux = dx / dist;
         double uy = dy / dist;
@@ -53,7 +54,7 @@ public class Transicion {
         int ay1 = (int) (ey - largoFlecha * Math.sin(angulo - anguloFlecha));
         int ax2 = (int) (ex - largoFlecha * Math.cos(angulo + anguloFlecha));
         int ay2 = (int) (ey - largoFlecha * Math.sin(angulo + anguloFlecha));
-        g2d.fillPolygon(new int[]{ex, ax1, ax2}, new int[]{ey, ay1, ay2}, 3);
+        g2d.fillPolygon(new int[] { ex, ax1, ax2 }, new int[] { ey, ay1, ay2 }, 3);
 
         g2d.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         FontMetrics fm = g2d.getFontMetrics();
@@ -66,18 +67,21 @@ public class Transicion {
         g2d.setColor(visitada ? colorLinea : new Color(80, 80, 80));
         g2d.drawString(etiqueta, tx, ty);
     }
+
     public Estado getOrigen() {
         return origen;
     }
+
     public Estado getDestino() {
         return destino;
     }
+
     public String getEtiqueta() {
         return etiqueta;
     }
+
     @Override
     public String toString() {
         return origen.getNombre() + " --[" + etiqueta + "]--> " + destino.getNombre();
     }
 }
-
