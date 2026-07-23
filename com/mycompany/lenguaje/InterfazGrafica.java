@@ -180,36 +180,21 @@ public class InterfazGrafica extends JFrame implements ActionListener {
             return;
         }
 
-        memoriaVariables.clear(); // Limpiamos la memoria antes de ejecutar el script
+        memoriaVariables.clear();
         StringBuilder consola = new StringBuilder();
 
-        // 1. DIVIDIMOS EL TEXTO DEL JTEXTAREA POR LÍNEAS CON .split()
         String[] lineas = contenidoCompleto.split("\\r?\\n");
-        int numeroLinea = 1;
 
-        // 2. RECORREMOS Y PROCESAMOS LÍNEA POR LÍNEA
-        for (String linea : lineas) {
-            linea = linea.trim();
-
-            // Ignorar líneas vacías o comentarios que empiecen por //
-            if (linea.isEmpty() || linea.startsWith("//")) {
-                numeroLinea++;
-                continue;
-            }
-
-            try {
-                procesarLinea(linea, consola);
-            } catch (Exception ex) {
-                consola.append("[Error en Línea ").append(numeroLinea).append("]: ").append(ex.getMessage()).append("\n");
-            }
-            numeroLinea++;
+        try {
+            ejecutarBloque(lineas, 0, lineas.length, consola);
+        } catch (Exception ex) {
+            consola.append("[Error de Ejecución]: ").append(ex.getMessage()).append("\n");
         }
 
         if (consola.length() == 0) {
             consola.append("Ejecución finalizada con éxito.");
         }
 
-        // Muestra el resultado de los 'imprimir' en una ventana emergente de consola
         JTextArea areaConsola = new JTextArea(consola.toString());
         areaConsola.setEditable(false);
         areaConsola.setFont(new Font("Consolas", Font.PLAIN, 14));
@@ -219,62 +204,50 @@ public class InterfazGrafica extends JFrame implements ActionListener {
         JOptionPane.showMessageDialog(this, scroll, "Resultado de la Ejecución", JOptionPane.PLAIN_MESSAGE);
     }
 
-    private void procesarLinea(String linea, StringBuilder consola) throws Exception {
-        // CASO A: Comando IMPRIMIR o MOSTRAR
-        if (linea.toLowerCase().startsWith("imprimir") || linea.toLowerCase().startsWith("mostrar")) {
-            String contenido = linea.replaceFirst("(?i)^(imprimir|mostrar)\\s*", "").trim();
+    // SOLUCIÓN AL ERROR 1: Método maestro para bloques recursivos
+    private int ejecutarBloque(String[] lineas, int inicio, int fin, StringBuilder consola) throws Exception {
+        int i = inicio;
+        while (i < fin) {
+            String linea = lineas[i].trim();
 
-            if (contenido.startsWith("(") && contenido.endsWith(")")) {
-                contenido = contenido.substring(1, contenido.length() - 1).trim();
+            if (linea.isEmpty() || linea.startsWith("//") || linea.equals("}")) {
+                i++;
+                continue;
             }
 
-            Object resultado = evaluarExpresion(contenido);
-            consola.append(formatearResultado(resultado)).append("\n");
+            if (linea.toLowerCase().startsWith("si")) {
+                i = ejecutarSiSino(lineas, i, consola);
+            } else if (linea.toLowerCase().startsWith("mientras")) {
+                i = ejecutarMientras(lineas, i, consola);
+            } else {
+                procesarInstruccionSimple(linea, consola);
+                i++;
+            }
         }
-        // CASO B: ASIGNACIÓN DE VARIABLES CON OPERACIONES (Ej: x = 10 + 5  o  Cadena s = "hola")
-        else if (linea.contains("=")) {
-            String[] partes = linea.split("=", 2);
-            String izq = partes[0].trim();
-            String der = partes[1].replace(";", "").trim();
-
-            // Extraer el nombre de la variable (soporta 'Numero x', 'Cadena s' o solo 'x')
-            String[] palabrasIzq = izq.split("\\s+");
-            String nombreVar = palabrasIzq[palabrasIzq.length - 1];
-
-            // Evaluamos lo que hay a la derecha del '='
-            Object valorEvaluado = evaluarExpresion(der);
-            memoriaVariables.put(nombreVar, valorEvaluado);
-        } else {
-            throw new Exception("Línea no reconocida: " + linea);
-        }
+        return i;
     }
 
-    // Evalúa si lo que se recibe es un texto entre comillas, una variable o una operación matemática
+    // EVALUACIÓN DE EXPRESIONES (Cadenas, Variables, Operaciones)
     private Object evaluarExpresion(String expr) throws Exception {
         expr = expr.trim();
 
-        // Si es una cadena literal entre comillas "hola"
         if ((expr.startsWith("\"") && expr.endsWith("\"")) || (expr.startsWith("'") && expr.endsWith("'"))) {
             return expr.substring(1, expr.length() - 1);
         }
 
-        // Reemplazamos los nombres de variables por sus valores actuales en la memoria
         for (Map.Entry<String, Object> entry : memoriaVariables.entrySet()) {
             String var = entry.getKey();
             Object val = entry.getValue();
             expr = expr.replaceAll("\\b" + var + "\\b", val.toString());
         }
 
-        // Si después de reemplazar variables queda una cadena entre comillas
         if ((expr.startsWith("\"") && expr.endsWith("\"")) || (expr.startsWith("'") && expr.endsWith("'"))) {
             return expr.substring(1, expr.length() - 1);
         }
 
-        // Intentar calcular si es una operación aritmética (ej: 10 + 20)
         try {
             return evaluarAritmetica(expr);
         } catch (Exception e) {
-            // Si la variable simple existe pero no es numérica
             if (memoriaVariables.containsKey(expr)) {
                 return memoriaVariables.get(expr);
             }
@@ -282,7 +255,108 @@ public class InterfazGrafica extends JFrame implements ActionListener {
         }
     }
 
-    // Evaluador de operaciones aritméticas (+, -, *, /) con prioridades
+    // ESTRUCTURA Si / Sino
+    private int ejecutarSiSino(String[] lineas, int indiceActual, StringBuilder consola) throws Exception {
+        String lineaHead = lineas[indiceActual].trim();
+        String condicionStr = extraeEntreParentesis(lineaHead);
+        boolean condicion = evaluarCondicionBooleana(condicionStr);
+
+        int finBloqueSi = buscarFinBloque(lineas, indiceActual);
+        int siguienteLinea = finBloqueSi + 1;
+
+        boolean tieneSino = (siguienteLinea < lineas.length) && lineas[siguienteLinea].trim().toLowerCase().startsWith("sino");
+        int finBloqueSino = tieneSino ? buscarFinBloque(lineas, siguienteLinea) : finBloqueSi;
+
+        if (condicion) {
+            ejecutarBloque(lineas, indiceActual + 1, finBloqueSi, consola);
+        } else if (tieneSino) {
+            ejecutarBloque(lineas, siguienteLinea + 1, finBloqueSino, consola);
+        }
+
+        return tieneSino ? finBloqueSino + 1 : finBloqueSi + 1;
+    }
+
+    // ESTRUCTURA Mientras
+    private int ejecutarMientras(String[] lineas, int indiceActual, StringBuilder consola) throws Exception {
+        String lineaHead = lineas[indiceActual].trim();
+        String condicionStr = extraeEntreParentesis(lineaHead);
+        int finBloque = buscarFinBloque(lineas, indiceActual);
+
+        while (evaluarCondicionBooleana(condicionStr)) {
+            ejecutarBloque(lineas, indiceActual + 1, finBloque, consola);
+        }
+        return finBloque + 1;
+    }
+
+    // ASIGNACIONES E IMPRESIONES
+    private void procesarInstruccionSimple(String linea, StringBuilder consola) throws Exception {
+        if (linea.toLowerCase().startsWith("imprimir") || linea.toLowerCase().startsWith("mostrar")) {
+            String contenido = linea.replaceFirst("(?i)^(imprimir|mostrar)\\s*", "").trim();
+            if (contenido.startsWith("(") && contenido.endsWith(")")) {
+                contenido = contenido.substring(1, contenido.length() - 1).trim();
+            }
+            Object res = evaluarExpresion(contenido);
+            consola.append(formatearResultado(res)).append("\n"); // SOLUCIÓN AL ERROR 3
+        } else if (linea.contains("=")) {
+            String[] partes = linea.split("=", 2);
+            String izq = partes[0].trim();
+            String der = partes[1].replace(";", "").trim();
+
+            String[] palabrasIzq = izq.split("\\s+");
+            String nombreVar = palabrasIzq[palabrasIzq.length - 1];
+
+            Object valorEvaluado = evaluarExpresion(der);
+            memoriaVariables.put(nombreVar, valorEvaluado);
+        }
+    }
+
+    // CONDICIONES BOOLEANAS
+    private boolean evaluarCondicionBooleana(String expr) throws Exception {
+        for (Map.Entry<String, Object> entry : memoriaVariables.entrySet()) {
+            expr = expr.replaceAll("\\b" + entry.getKey() + "\\b", entry.getValue().toString());
+        }
+
+        expr = expr.replaceAll("(?i)\\bverdadero\\b", "true").replaceAll("(?i)\\bfalso\\b", "false");
+
+        if (expr.contains(">=")) {
+            String[] p = expr.split(">=");
+            return Double.parseDouble(evaluarExpresion(p[0]).toString()) >= Double.parseDouble(evaluarExpresion(p[1]).toString());
+        } else if (expr.contains("<=")) {
+            String[] p = expr.split("<=");
+            return Double.parseDouble(evaluarExpresion(p[0]).toString()) <= Double.parseDouble(evaluarExpresion(p[1]).toString());
+        } else if (expr.contains(">")) {
+            String[] p = expr.split(">");
+            return Double.parseDouble(evaluarExpresion(p[0]).toString()) > Double.parseDouble(evaluarExpresion(p[1]).toString());
+        } else if (expr.contains("<")) {
+            String[] p = expr.split("<");
+            return Double.parseDouble(evaluarExpresion(p[0]).toString()) < Double.parseDouble(evaluarExpresion(p[1]).toString());
+        } else if (expr.contains("==")) {
+            String[] p = expr.split("==");
+            return evaluarExpresion(p[0]).toString().equals(evaluarExpresion(p[1]).toString());
+        } else if (expr.contains("!=")) {
+            String[] p = expr.split("!=");
+            return !evaluarExpresion(p[0]).toString().equals(evaluarExpresion(p[1]).toString());
+        }
+
+        return Boolean.parseBoolean(expr.trim());
+    }
+
+    private String extraeEntreParentesis(String texto) {
+        int i = texto.indexOf("(");
+        int f = texto.lastIndexOf(")");
+        return (i != -1 && f != -1) ? texto.substring(i + 1, f) : texto;
+    }
+
+    private int buscarFinBloque(String[] lineas, int inicio) {
+        for (int i = inicio + 1; i < lineas.length; i++) {
+            if (lineas[i].trim().equals("}")) {
+                return i;
+            }
+        }
+        return lineas.length;
+    }
+
+    // PARSER MATEMÁTICO
     private double evaluarAritmetica(String expr) {
         return new Object() {
             int pos = -1, ch;
@@ -292,7 +366,9 @@ public class InterfazGrafica extends JFrame implements ActionListener {
             }
 
             boolean eat(int charToEat) {
-                while (ch == ' ') nextChar();
+                while (ch == ' ') {
+                    nextChar();
+                }
                 if (ch == charToEat) {
                     nextChar();
                     return true;
@@ -303,31 +379,45 @@ public class InterfazGrafica extends JFrame implements ActionListener {
             double parse() {
                 nextChar();
                 double x = parseExpression();
-                if (pos < expr.length()) throw new RuntimeException("Carácter inesperado: " + (char)ch);
+                if (pos < expr.length()) {
+                    throw new RuntimeException("Carácter inesperado: " + (char) ch);
+                }
                 return x;
             }
 
             double parseExpression() {
                 double x = parseTerm();
                 for (;;) {
-                    if      (eat('+')) x += parseTerm();
-                    else if (eat('-')) x -= parseTerm();
-                    else return x;
+                    if (eat('+')) {
+                        x += parseTerm();
+                    } else if (eat('-')) {
+                        x -= parseTerm();
+                    } else {
+                        return x;
+                    }
                 }
             }
 
             double parseTerm() {
                 double x = parseFactor();
                 for (;;) {
-                    if      (eat('*')) x *= parseFactor();
-                    else if (eat('/')) x /= parseFactor();
-                    else return x;
+                    if (eat('*')) {
+                        x *= parseFactor();
+                    } else if (eat('/')) {
+                        x /= parseFactor();
+                    } else {
+                        return x;
+                    }
                 }
             }
 
             double parseFactor() {
-                if (eat('+')) return +parseFactor();
-                if (eat('-')) return -parseFactor();
+                if (eat('+')) {
+                    return +parseFactor();
+                }
+                if (eat('-')) {
+                    return -parseFactor();
+                }
 
                 double x;
                 int startPos = this.pos;
@@ -335,7 +425,9 @@ public class InterfazGrafica extends JFrame implements ActionListener {
                     x = parseExpression();
                     eat(')');
                 } else if ((ch >= '0' && ch <= '9') || ch == '.') {
-                    while ((ch >= '0' && ch <= '9') || ch == '.') nextChar();
+                    while ((ch >= '0' && ch <= '9') || ch == '.') {
+                        nextChar();
+                    }
                     x = Double.parseDouble(expr.substring(startPos, this.pos));
                 } else {
                     throw new RuntimeException("Factor no válido");
@@ -349,12 +441,11 @@ public class InterfazGrafica extends JFrame implements ActionListener {
         if (obj instanceof Double) {
             double d = (Double) obj;
             if (d == (long) d) {
-                return String.format("%d", (long) d); // Muestra enteros sin decimales feos (ej: 15 en vez de 15.0)
+                return String.format("%d", (long) d);
             }
         }
         return obj.toString();
     }
-
     private void accionGuardar() {
         JFileChooser chooser = new JFileChooser();
         int r = chooser.showSaveDialog(this);
