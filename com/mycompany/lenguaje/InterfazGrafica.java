@@ -195,15 +195,109 @@ public class InterfazGrafica extends JFrame implements ActionListener {
             consola.append("Ejecución finalizada con éxito.");
         }
 
-        JTextArea areaConsola = new JTextArea(consola.toString());
-        areaConsola.setEditable(false);
-        areaConsola.setFont(new Font("Consolas", Font.PLAIN, 14));
-        JScrollPane scroll = new JScrollPane(areaConsola);
-        scroll.setPreferredSize(new Dimension(450, 250));
-
-        JOptionPane.showMessageDialog(this, scroll, "Resultado de la Ejecución", JOptionPane.PLAIN_MESSAGE);
+        // LLAMADA A LA VENTANA ESTÉTICA DE RESULTADOS
+        mostrarConsolaEstetico(consola.toString());
     }
 
+    // Ventana Emergente Personalizada y Estética
+    private void mostrarConsolaEstetico(String textoResultado) {
+        JDialog dialog = new JDialog(this, "Resultado de la Ejecución", true);
+        dialog.setSize(480, 380);
+        dialog.setLocationRelativeTo(this);
+        dialog.setLayout(new BorderLayout());
+
+        // -----------------------------------------------------------
+        // A. ENCABEZADO MODERNO
+        // -----------------------------------------------------------
+        JPanel panelHeader = new JPanel(new BorderLayout());
+        panelHeader.setBackground(new Color(30, 32, 44)); // Tema oscuro elegante
+        panelHeader.setBorder(BorderFactory.createEmptyBorder(18, 22, 18, 22));
+
+        JLabel lblTitulo = new JLabel("Salida de Ejecución");
+        lblTitulo.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        lblTitulo.setForeground(Color.WHITE);
+
+        JLabel lblSubtitulo = new JLabel("Ejecución completada con éxito");
+        lblSubtitulo.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        lblSubtitulo.setForeground(new Color(160, 170, 200));
+
+        JPanel panelTitulos = new JPanel(new GridLayout(2, 1, 0, 4));
+        panelTitulos.setOpaque(false);
+        panelTitulos.add(lblTitulo);
+        panelTitulos.add(lblSubtitulo);
+
+        panelHeader.add(panelTitulos, BorderLayout.CENTER);
+
+        // -----------------------------------------------------------
+        // B. CUERPO PRINCIPAL (TARJETA CENTRADA)
+        // -----------------------------------------------------------
+        JPanel panelCentro = new JPanel(new GridBagLayout());
+        panelCentro.setBackground(new Color(243, 244, 246)); // Fondo gris suave
+
+        String textoLimpio = textoResultado.trim();
+        boolean esResultadoUnico = textoLimpio.split("\n").length == 1;
+
+        if (esResultadoUnico) {
+            // TARJETA TIPO "DASHBOARD" PARA UN SOLO VALOR (ej. 5, "Hola", etc.)
+            JPanel tarjeta = new JPanel(new BorderLayout());
+            tarjeta.setBackground(Color.WHITE);
+            tarjeta.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(new Color(225, 228, 232), 1, true),
+                    BorderFactory.createEmptyBorder(20, 40, 20, 40)
+            ));
+
+            JLabel lblValor = new JLabel(textoLimpio, SwingConstants.CENTER);
+            lblValor.setFont(new Font("Segoe UI", Font.BOLD, 42)); // Número/Texto Gigante
+            lblValor.setForeground(new Color(79, 70, 229)); // Color Índigo Moderno
+
+            JLabel lblTag = new JLabel("VALOR RETORNADO", SwingConstants.CENTER);
+            lblTag.setFont(new Font("Segoe UI", Font.BOLD, 10));
+            lblTag.setForeground(new Color(156, 163, 175));
+
+            tarjeta.add(lblTag, BorderLayout.NORTH);
+            tarjeta.add(lblValor, BorderLayout.CENTER);
+
+            panelCentro.add(tarjeta);
+        } else {
+            // VISTA TIPO CONSOLA PARA MÚLTIPLES LÍNEAS DE SALIDA
+            JTextArea areaConsola = new JTextArea(textoResultado);
+            areaConsola.setEditable(false);
+            areaConsola.setFont(new Font("Consolas", Font.PLAIN, 14));
+            areaConsola.setBackground(Color.WHITE);
+            areaConsola.setForeground(new Color(31, 41, 55));
+            areaConsola.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+
+            JScrollPane scroll = new JScrollPane(areaConsola);
+            scroll.setPreferredSize(new Dimension(400, 180));
+            scroll.setBorder(BorderFactory.createLineBorder(new Color(229, 231, 235), 1));
+
+            panelCentro.add(scroll);
+        }
+
+        // -----------------------------------------------------------
+        // C. PIE DE PÁGINA Y BOTÓN
+        // -----------------------------------------------------------
+        JPanel panelFooter = new JPanel(new FlowLayout(FlowLayout.RIGHT, 20, 14));
+        panelFooter.setBackground(Color.WHITE);
+        panelFooter.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(229, 231, 235)));
+
+        JButton btnCerrar = new JButton("Aceptar");
+        btnCerrar.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        btnCerrar.setBackground(new Color(79, 70, 229));
+        btnCerrar.setForeground(Color.WHITE);
+        btnCerrar.setFocusPainted(false);
+        btnCerrar.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnCerrar.setBorder(BorderFactory.createEmptyBorder(8, 24, 8, 24));
+        btnCerrar.addActionListener(e -> dialog.dispose());
+
+        panelFooter.add(btnCerrar);
+
+        dialog.add(panelHeader, BorderLayout.NORTH);
+        dialog.add(panelCentro, BorderLayout.CENTER);
+        dialog.add(panelFooter, BorderLayout.SOUTH);
+
+        dialog.setVisible(true);
+    }
     // SOLUCIÓN AL ERROR 1: Método maestro para bloques recursivos
     private int ejecutarBloque(String[] lineas, int inicio, int fin, StringBuilder consola) throws Exception {
         int i = inicio;
