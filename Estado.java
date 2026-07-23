@@ -1,5 +1,3 @@
-
-package com.mycompany.lenguaje;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Font;
@@ -23,6 +21,7 @@ public class Estado {
         this.x = x;
         this.y = y;
     }
+
     public void dibujado(Graphics2D g2d, boolean visitado, boolean esValida) {
         Color colorFondo = Color.WHITE;
         Color colorBorde = new Color(120, 120, 120);
@@ -58,8 +57,8 @@ public class Estado {
             g2d.setColor(colorBorde);
             g2d.setStroke(new BasicStroke(2));
             g2d.drawLine(x - RADIO_NODO - 25, y, x - RADIO_NODO - 2, y);
-            int[] xArrow = {x - RADIO_NODO - 8, x - RADIO_NODO - 2, x - RADIO_NODO - 8};
-            int[] yArrow = {y - 5, y, y + 5};
+            int[] xArrow = { x - RADIO_NODO - 8, x - RADIO_NODO - 2, x - RADIO_NODO - 8 };
+            int[] yArrow = { y - 5, y, y + 5 };
             g2d.fillPolygon(xArrow, yArrow, 3);
         }
 
@@ -70,24 +69,31 @@ public class Estado {
         int ty = y + fm.getAscent() / 2 - 2;
         g2d.drawString(nombre, tx, ty);
     }
+
     public String getNombre() {
         return nombre;
     }
+
     public boolean isEsInicial() {
         return esInicial;
     }
-    public boolean isEsError() { 
-        return esError; 
+
+    public boolean isEsError() {
+        return esError;
     }
+
     public boolean isEsAceptacion() {
         return esAceptacion;
     }
+
     public int getX() {
         return x;
     }
+
     public int getY() {
         return y;
     }
+
     public void setX(int x) {
         this.x = x;
     }
@@ -95,9 +101,10 @@ public class Estado {
     public void setY(int y) {
         this.y = y;
     }
+
     @Override
     public String toString() {
         return nombre + (esAceptacion ? " (Aceptación)" : "") + (esError ? " (Error)" : "");
     }
-    
+
 }
