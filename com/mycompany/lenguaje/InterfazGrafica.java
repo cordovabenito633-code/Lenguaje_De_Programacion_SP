@@ -158,12 +158,27 @@ public class InterfazGrafica extends JFrame implements ActionListener {
     }
 
     private void actualizarAutomataSeleccionado() {
-        // Construye y muestra el autómata
         int index = lista.getSelectedIndex();
         if (index >= 0 && index < lineasAnalizadas.size()) {
             String linea = lineasAnalizadas.get(index);
-            automataActual = new Automata(linea); // crear aquí el objeto Automata
+
+            // 1. Creamos el autómata
+            automataActual = new Automata(linea);
+
+            // 2. Creamos y ejecutamos el hilo para que genere los estados y transiciones
+            Thread hiloGrafo = new Thread(automataActual);
+            hiloGrafo.start();
+
+            try {
+                // 3. Esperamos un instante a que el hilo termine de construir el grafo
+                hiloGrafo.join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+            // 4. Ahora que ya tiene estados y transiciones, lo enviamos al panel para dibujarlo
             panelAutomata.setAutomata(automataActual);
+            panelAutomata.repaint(); // Forzamos el redibujado de la pantalla
         } else {
             panelAutomata.setAutomata(null);
         }
@@ -432,6 +447,7 @@ public class InterfazGrafica extends JFrame implements ActionListener {
     private void procesarInstruccionSimple(String linea, StringBuilder consola) throws Exception {
         linea = linea.trim();
 
+        // 1. IMPRIMIR / MOSTRAR
         if (linea.toLowerCase().startsWith("imprimir") || linea.toLowerCase().startsWith("mostrar")) {
             String contenido = linea.replaceFirst("(?i)^(imprimir|mostrar)\\s*", "").trim();
             if (contenido.startsWith("(") && contenido.endsWith(")")) {
@@ -442,6 +458,7 @@ public class InterfazGrafica extends JFrame implements ActionListener {
             return;
         }
 
+        // 2. ASIGNACIONES (Con o sin tipo)
         if (linea.contains("=")) {
             String[] partes = linea.split("=", 2);
             String izq = partes[0].trim();
@@ -449,6 +466,7 @@ public class InterfazGrafica extends JFrame implements ActionListener {
 
             String[] palabrasIzq = izq.split("\\s+");
 
+            // CASO A: Declaración con Tipo (Ejemplo: Numero x = 2)
             if (palabrasIzq.length > 1) {
                 String tipo = palabrasIzq[0];
                 String nombreVar = palabrasIzq[1];
@@ -457,12 +475,16 @@ public class InterfazGrafica extends JFrame implements ActionListener {
                     if (der.startsWith("\"") || der.startsWith("'")) {
                         throw new Exception("Error: 'Numero' no puede recibir comillas.");
                     }
-                    memoriaVariables.put(nombreVar, Integer.parseInt(evaluarExpresion(der).toString()));
+                    // FIX: Usa Double.parseDouble y castea a (int) para evitar el error "2.0"
+                    int num = (int) Double.parseDouble(evaluarExpresion(der).toString());
+                    memoriaVariables.put(nombreVar, num);
+
                 } else if (tipo.equalsIgnoreCase("Cadena")) {
                     if (!der.startsWith("\"") || !der.endsWith("\"")) {
                         throw new Exception("Error: 'Cadena' debe ir con comillas dobles (\"\").");
                     }
                     memoriaVariables.put(nombreVar, der.substring(1, der.length() - 1));
+
                 } else if (tipo.equalsIgnoreCase("Booleano")) {
                     if (der.equalsIgnoreCase("verdadero")) {
                         memoriaVariables.put(nombreVar, true);
@@ -471,6 +493,23 @@ public class InterfazGrafica extends JFrame implements ActionListener {
                     } else {
                         throw new Exception("Error: 'Booleano' solo acepta 'verdadero' o 'falso'.");
                     }
+                }
+            }
+            // CASO B: Reasignación de variable ya declarada (Ejemplo: x = x + 2)
+            else {
+                String nombreVar = palabrasIzq[0];
+                if (!memoriaVariables.containsKey(nombreVar)) {
+                    throw new Exception("La variable '" + nombreVar + "' no ha sido declarada.");
+                }
+
+                Object valorActual = memoriaVariables.get(nombreVar);
+
+                // Si es un número (int), convierte el resultado a int de forma segura
+                if (valorActual instanceof Integer) {
+                    int num = (int) Double.parseDouble(evaluarExpresion(der).toString());
+                    memoriaVariables.put(nombreVar, num);
+                } else {
+                    memoriaVariables.put(nombreVar, evaluarExpresion(der));
                 }
             }
         }

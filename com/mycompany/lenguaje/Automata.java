@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class Automata {
+public class Automata implements Runnable {
     private String lineaOriginal;
     private boolean esValida;
     private List<Estado> estados;
@@ -20,9 +20,12 @@ public class Automata {
         this.caminoEstados = new ArrayList<>();
         this.caminoTransiciones = new ArrayList<>();
         
+        //analizar();
+    }
+    @Override
+    public void run() {
         analizar();
     }
-
     private void analizar() {
         List<String> tokens = tokenizar(lineaOriginal);
         

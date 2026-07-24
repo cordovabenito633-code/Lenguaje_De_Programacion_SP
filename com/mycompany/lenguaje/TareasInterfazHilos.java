@@ -10,6 +10,8 @@ import javax.swing.SwingUtilities;
 
 public class TareasInterfazHilos {
 
+    // ... (Otras tareas como Ejecutar o Guardar si existen) ...
+
     public static class Analizar implements Runnable {
         private final InterfazGrafica ventana;
         private final String texto;
@@ -25,28 +27,50 @@ public class TareasInterfazHilos {
             List<String> elementosLista = new ArrayList<>();
 
             String[] lineas = texto.split("\\r?\\n");
+
             for (int i = 0; i < lineas.length; i++) {
                 String linea = lineas[i].trim();
                 if (linea.isEmpty()) {
                     continue;
                 }
-                nuevasLineas.add(linea);
-                elementosLista.add("Línea " + (i + 1) + ": " + linea);
+
+                // PASO 4: Instanciar el Autómata
+                Automata auto = new Automata(linea);
+
+                // PASO 5: Crear el hilo y asignarle la tarea del autómata
+                Thread hiloAutomata = new Thread(auto);
+
+                // PASO 6: Iniciar el hilo (ejecuta el método run() de Automata en segundo plano)
+                hiloAutomata.start();
+
+                try {
+                    // PASO 7: Esperar a que el hilo del autómata termine de analizar esta línea
+                    hiloAutomata.join();
+                } catch (InterruptedException e) {
+                    // Manejo de interrupción del hilo si es necesario
+                    Thread.currentThread().interrupt();
+                    e.printStackTrace();
+                }
+
+                // PASO 8: Procesar el resultado una vez que el hilo terminó
+                if (auto.isEsValida()) {
+                    nuevasLineas.add(linea);
+                    elementosLista.add("Línea " + (i + 1) + " [Válida]: " + linea);
+                } else {
+                    elementosLista.add("Línea " + (i + 1) + " [Sintaxis Incorrecta]: " + linea);
+                }
             }
 
             final List<String> lineasResultado = nuevasLineas;
             final List<String> elementosResultado = elementosLista;
             final boolean sinLineasValidas = nuevasLineas.isEmpty();
 
-            SwingUtilities.invokeLater(new Runnable() {
-                @Override
-                public void run() {
-                    ventana.finalizarAnalisis(lineasResultado, elementosResultado, sinLineasValidas);
-                }
+            // PASO 9: Enviar resultados a la GUI de forma segura (SwingUtilities.invokeLater)
+            SwingUtilities.invokeLater(() -> {
+                ventana.finalizarAnalisis(lineasResultado, elementosResultado, sinLineasValidas);
             });
         }
     }
-
     public static class Ejecutar implements Runnable {
         private final InterfazGrafica ventana;
         private final String contenido;
