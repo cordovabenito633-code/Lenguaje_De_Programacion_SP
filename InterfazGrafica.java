@@ -1,11 +1,9 @@
 import java.awt.*;
 import java.awt.event.*;
-import java.io.*;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.ArrayList;
-import java.util.List;
+import java.io.File;
+import java.util.*;
 import javax.swing.*;
+import java.util.List;
 
 public class InterfazGrafica extends JFrame implements ActionListener {
     private JList<String> lista;
@@ -126,31 +124,30 @@ public class InterfazGrafica extends JFrame implements ActionListener {
             return;
         }
 
-        // Limpiamos las lineas del texto anterior para analizar el nuevo
+        btnAnalizar.setEnabled(false);
         modeloLista.clear();
         lineasAnalizadas.clear();
         automataActual = null;
+        panelAutomata.setAutomata(null);
 
-        String[] lineas = texto.split("\\r?\\n");
-        for (int i = 0; i < lineas.length; i++) {
-            String linea = lineas[i].trim();
-            if (linea.isEmpty()) {
-                continue;
-            }
-            // Guardamos solo la línea; el automata se crea cuando se selecciona
-            lineasAnalizadas.add(linea);
-            modeloLista.addElement("Línea " + (i + 1) + ": " + linea);
-        }
+        TareasInterfazHilos.Analizar tarea = new TareasInterfazHilos.Analizar(this, texto);
+        Thread hilo = new Thread(tarea);
+        hilo.start();
+    }
 
-        if (lineasAnalizadas.isEmpty()) {
+    void finalizarAnalisis(List<String> nuevasLineas, List<String> elementosLista, boolean sinLineasValidas) {
+        if (sinLineasValidas) {
             JOptionPane.showMessageDialog(this, "No hay líneas válidas para analizar.", "Advertencia",
                     JOptionPane.WARNING_MESSAGE);
             panelAutomata.setAutomata(null);
-            return;
+        } else {
+            lineasAnalizadas.addAll(nuevasLineas);
+            for (String elemento : elementosLista) {
+                modeloLista.addElement(elemento);
+            }
+            lista.setSelectedIndex(0);
         }
-
-        // Seleccionamos la primera línea para que se construya y muestre su automata
-        lista.setSelectedIndex(0);
+        btnAnalizar.setEnabled(true);
     }
 
     private void accionLimpiar() {
@@ -182,9 +179,16 @@ public class InterfazGrafica extends JFrame implements ActionListener {
             return;
         }
 
+        btnEjecutar.setEnabled(false);
+
+        TareasInterfazHilos.Ejecutar tarea = new TareasInterfazHilos.Ejecutar(this, contenidoCompleto);
+        Thread hilo = new Thread(tarea);
+        hilo.start();
+    }
+
+    String ejecutarPseudocodigo(String contenidoCompleto) {
         memoriaVariables.clear();
         StringBuilder consola = new StringBuilder();
-
         String[] lineas = contenidoCompleto.split("\\r?\\n");
 
         try {
@@ -197,8 +201,12 @@ public class InterfazGrafica extends JFrame implements ActionListener {
             consola.append("Ejecución finalizada con éxito.");
         }
 
-        // LLAMADA A LA VENTANA ESTÉTICA DE RESULTADOS
-        mostrarConsolaEstetico(consola.toString());
+        return consola.toString();
+    }
+
+    void finalizarEjecucion(String resultado) {
+        mostrarConsolaEstetico(resultado);
+        btnEjecutar.setEnabled(true);
     }
 
     // Ventana Emergente Personalizada y Estética (Adaptable)
@@ -421,26 +429,51 @@ public class InterfazGrafica extends JFrame implements ActionListener {
 
     // ASIGNACIONES E IMPRESIONES
     private void procesarInstruccionSimple(String linea, StringBuilder consola) throws Exception {
+        linea = linea.trim();
+
         if (linea.toLowerCase().startsWith("imprimir") || linea.toLowerCase().startsWith("mostrar")) {
             String contenido = linea.replaceFirst("(?i)^(imprimir|mostrar)\\s*", "").trim();
             if (contenido.startsWith("(") && contenido.endsWith(")")) {
                 contenido = contenido.substring(1, contenido.length() - 1).trim();
             }
             Object res = evaluarExpresion(contenido);
-            consola.append(formatearResultado(res)).append("\n"); // SOLUCIÓN AL ERROR 3
-        } else if (linea.contains("=")) {
+            consola.append(formatearResultado(res)).append("\n");
+            return;
+        }
+
+        if (linea.contains("=")) {
             String[] partes = linea.split("=", 2);
             String izq = partes[0].trim();
             String der = partes[1].replace(";", "").trim();
 
             String[] palabrasIzq = izq.split("\\s+");
-            String nombreVar = palabrasIzq[palabrasIzq.length - 1];
 
-            Object valorEvaluado = evaluarExpresion(der);
-            memoriaVariables.put(nombreVar, valorEvaluado);
+            if (palabrasIzq.length > 1) {
+                String tipo = palabrasIzq[0];
+                String nombreVar = palabrasIzq[1];
+
+                if (tipo.equalsIgnoreCase("Numero")) {
+                    if (der.startsWith("\"") || der.startsWith("'")) {
+                        throw new Exception("Error: 'Numero' no puede recibir comillas.");
+                    }
+                    memoriaVariables.put(nombreVar, Integer.parseInt(evaluarExpresion(der).toString()));
+                } else if (tipo.equalsIgnoreCase("Cadena")) {
+                    if (!der.startsWith("\"") || !der.endsWith("\"")) {
+                        throw new Exception("Error: 'Cadena' debe ir con comillas dobles (\"\").");
+                    }
+                    memoriaVariables.put(nombreVar, der.substring(1, der.length() - 1));
+                } else if (tipo.equalsIgnoreCase("Booleano")) {
+                    if (der.equalsIgnoreCase("verdadero")) {
+                        memoriaVariables.put(nombreVar, true);
+                    } else if (der.equalsIgnoreCase("falso")) {
+                        memoriaVariables.put(nombreVar, false);
+                    } else {
+                        throw new Exception("Error: 'Booleano' solo acepta 'verdadero' o 'falso'.");
+                    }
+                }
+            }
         }
     }
-
     // CONDICIONES BOOLEANAS
     private boolean evaluarCondicionBooleana(String expr) throws Exception {
         for (Map.Entry<String, Object> entry : memoriaVariables.entrySet()) {
@@ -600,21 +633,38 @@ public class InterfazGrafica extends JFrame implements ActionListener {
     private void accionGuardar() {
         JFileChooser chooser = new JFileChooser();
         int r = chooser.showSaveDialog(this);
-        if (r == JFileChooser.APPROVE_OPTION) {
-            File f = chooser.getSelectedFile();
-            try (BufferedWriter w = new BufferedWriter(new FileWriter(f))) {
-                w.write(areaTexto.getText());
-                JOptionPane.showMessageDialog(this, "Pseudocódigo guardado correctamente.", "Guardar",
-                        JOptionPane.INFORMATION_MESSAGE);
-            } catch (IOException ex) {
-                JOptionPane.showMessageDialog(this, "Error al guardar el archivo: " + ex.getMessage(), "Error",
-                        JOptionPane.ERROR_MESSAGE);
-            }
+        if (r != JFileChooser.APPROVE_OPTION) {
+            return;
         }
+
+        File archivo = chooser.getSelectedFile();
+        String contenido = areaTexto.getText();
+
+        btnGuardar.setEnabled(false);
+
+        TareasInterfazHilos.Guardar tarea = new TareasInterfazHilos.Guardar(this, archivo, contenido);
+        Thread hilo = new Thread(tarea);
+        hilo.start();
+    }
+
+    void finalizarGuardado(String error) {
+        if (error == null) {
+            JOptionPane.showMessageDialog(this, "Pseudocódigo guardado correctamente.", "Guardar",
+                    JOptionPane.INFORMATION_MESSAGE);
+        } else {
+            JOptionPane.showMessageDialog(this, "Error al guardar el archivo: " + error, "Error",
+                    JOptionPane.ERROR_MESSAGE);
+        }
+        btnGuardar.setEnabled(true);
     }
 
     public static void main(String[] args) {
-        InterfazGrafica v = new InterfazGrafica();
-        v.setVisible(true);
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                InterfazGrafica v = new InterfazGrafica();
+                v.setVisible(true);
+            }
+        });
     }
 }
