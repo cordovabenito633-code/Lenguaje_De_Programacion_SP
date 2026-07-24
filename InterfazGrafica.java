@@ -330,12 +330,43 @@ public class InterfazGrafica extends JFrame implements ActionListener {
                 i = ejecutarSiSino(lineas, i, consola);
             } else if (linea.toLowerCase().startsWith("mientras")) {
                 i = ejecutarMientras(lineas, i, consola);
+            } else if (linea.toLowerCase().startsWith("para")) {
+                i = ejecutarPara(lineas, i, consola);
             } else {
                 procesarInstruccionSimple(linea, consola);
                 i++;
             }
         }
         return i;
+    }
+
+    // ESTRUCTURA Para
+    private int ejecutarPara(String[] lineas, int indiceActual, StringBuilder consola) throws Exception {
+        String lineaHead = lineas[indiceActual].trim();
+        String[] partesHasta = lineaHead.split("(?i)\\bhasta\\b");
+        if (partesHasta.length < 2) {
+            throw new Exception("Sintaxis incorrecta en bucle 'Para'. Ejemplo: Para i Hasta 5 Hacer [");
+        }
+
+        String varStr = partesHasta[0].replaceFirst("(?i)^para\\s*", "").trim();
+        String[] partesHacer = partesHasta[1].split("(?i)\\bhacer\\b");
+        String limiteStr = partesHacer[0].replace(":", "").trim();
+
+        if (!memoriaVariables.containsKey(varStr)) {
+            throw new Exception("La variable '" + varStr + "' debe ser declarada e inicializada previamente antes del bucle 'Para'.");
+        }
+
+        int finBloque = buscarFinBloque(lineas, indiceActual);
+
+        double inicioVal = Double.parseDouble(memoriaVariables.get(varStr).toString());
+        double limiteVal = Double.parseDouble(evaluarExpresion(limiteStr).toString());
+
+        for (double v = inicioVal; v <= limiteVal; v++) {
+            memoriaVariables.put(varStr, v);
+            ejecutarBloque(lineas, indiceActual + 1, finBloque, consola);
+        }
+
+        return finBloque + 1;
     }
 
     // EVALUACIÓN DE EXPRESIONES (Cadenas, Variables, Operaciones)
@@ -456,21 +487,29 @@ public class InterfazGrafica extends JFrame implements ActionListener {
                     if (der.startsWith("\"") || der.startsWith("'")) {
                         throw new Exception("Error: 'Numero' no puede recibir comillas.");
                     }
-                    memoriaVariables.put(nombreVar, Integer.parseInt(evaluarExpresion(der).toString()));
+                    Object val = evaluarExpresion(der);
+                    if (val instanceof String) {
+                        throw new Exception("Error: 'Numero' no puede recibir una Cadena.");
+                    }
+                    memoriaVariables.put(nombreVar, val);
                 } else if (tipo.equalsIgnoreCase("Cadena")) {
-                    if (!der.startsWith("\"") || !der.endsWith("\"")) {
-                        throw new Exception("Error: 'Cadena' debe ir con comillas dobles (\"\").");
+                    Object val = evaluarExpresion(der);
+                    if (!(val instanceof String)) {
+                        throw new Exception("Error: 'Cadena' solo puede recibir un texto/cadena.");
                     }
-                    memoriaVariables.put(nombreVar, der.substring(1, der.length() - 1));
-                } else if (tipo.equalsIgnoreCase("Booleano")) {
-                    if (der.equalsIgnoreCase("verdadero")) {
-                        memoriaVariables.put(nombreVar, true);
-                    } else if (der.equalsIgnoreCase("falso")) {
-                        memoriaVariables.put(nombreVar, false);
-                    } else {
-                        throw new Exception("Error: 'Booleano' solo acepta 'verdadero' o 'falso'.");
-                    }
+                    memoriaVariables.put(nombreVar, val);
+                } else if (tipo.equalsIgnoreCase("Booleano") || tipo.equalsIgnoreCase("Logico")) {
+                    Object val = evaluarExpresion(der);
+                    memoriaVariables.put(nombreVar, val);
+                } else {
+                    Object val = evaluarExpresion(der);
+                    memoriaVariables.put(nombreVar, val);
                 }
+            } else {
+                // Reasignación directa de variable existente (ej. a = 10 o x = y + 1)
+                String nombreVar = palabrasIzq[0];
+                Object val = evaluarExpresion(der);
+                memoriaVariables.put(nombreVar, val);
             }
         }
     }

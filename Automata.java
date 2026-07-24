@@ -108,7 +108,7 @@ public class Automata {
         if (lower.equals("hasta")) return "Hasta";
         if (lower.equals("hacer")) return "Hacer";
         if (lower.equals("logico")) return "Logico";
-        if (lower.equals("imprimir") || lower.equals("mostrar")) return "imprimir";
+        if (lower.equals("imprimir") || lower.equals("mostrar")) return "Imprimir";
         if (lower.equals("verdadero") || lower.equals("vardadero")) return "BooleanLiteral";
         if (lower.equals("falso")) return "BooleanLiteral";
         if (lower.equals("y") || lower.equals("o")) return lower;
@@ -131,14 +131,14 @@ public class Automata {
     // ----------------------------------------------------
 
     private void construirDFAPara() {
-        Estado p0 = new Estado("p0", true, false, false, 60, 120);
-        Estado p1 = new Estado("p1", false, false, false, 150, 120);
-        Estado p2 = new Estado("p2", false, false, false, 240, 120);
-        Estado p3 = new Estado("p3", false, false, false, 330, 120);
-        Estado p4 = new Estado("p4", false, false, false, 420, 120);
-        Estado p5 = new Estado("p5", false, false, false, 510, 120);
-        Estado p6 = new Estado("p6", false, true, false, 600, 120); // Aceptación
-        Estado pe = new Estado("pe", false, false, true, 330, 220); // Error
+        Estado p0 = new Estado("p0", true, false, false, 50, 100);
+        Estado p1 = new Estado("p1", false, false, false, 150, 100);
+        Estado p2 = new Estado("p2", false, false, false, 250, 100);
+        Estado p3 = new Estado("p3", false, false, false, 350, 100);
+        Estado p4 = new Estado("p4", false, false, false, 450, 100);
+        Estado p5 = new Estado("p5", false, true, false, 550, 100); // Aceptación
+        Estado p6 = new Estado("p6", false, true, false, 650, 100); // Aceptación con [
+        Estado pe = new Estado("pe", false, false, true, 350, 200); // Error
 
         estados.add(p0);
         estados.add(p1);
@@ -150,14 +150,12 @@ public class Automata {
         estados.add(pe);
 
         transiciones.add(new Transicion(p0, p1, "Para"));
-        transiciones.add(new Transicion(p1, p2, "NumeroLiteral"));
-        transiciones.add(new Transicion(p1, p2, "id"));
+        transiciones.add(new Transicion(p1, p2, "id")); // Requiere variable declarada previamente
         transiciones.add(new Transicion(p2, p3, "Hasta"));
         transiciones.add(new Transicion(p3, p4, "NumeroLiteral"));
         transiciones.add(new Transicion(p3, p4, "id"));
         transiciones.add(new Transicion(p4, p5, "Hacer"));
-        transiciones.add(new Transicion(p5, p6, ":"));
-        transiciones.add(new Transicion(p5, p6, ""));
+        transiciones.add(new Transicion(p5, p6, "["));
     }
 
     private void construirDFALogico() {
@@ -252,7 +250,7 @@ public class Automata {
         estados.add(ie);
 
         // Transición inicial
-        transiciones.add(new Transicion(i0, i1, "imprimir"));
+        transiciones.add(new Transicion(i0, i1, "Imprimir"));
 
         // Rama con paréntesis: imprimir ( expr )
         transiciones.add(new Transicion(i1, i2_par, "("));
@@ -317,7 +315,7 @@ public class Automata {
         estados.add(me);
 
         // Inicio y apertura de paréntesis
-        transiciones.add(new Transicion(m0, m1, "mientras"));
+        transiciones.add(new Transicion(m0, m1, "Mientras"));
         transiciones.add(new Transicion(m1, m2, "("));
 
         // Lado izquierdo de la condición (m2 -> m3)
