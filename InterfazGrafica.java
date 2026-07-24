@@ -313,7 +313,7 @@ public class InterfazGrafica extends JFrame implements ActionListener {
         while (i < fin) {
             String linea = lineas[i].trim();
 
-            if (linea.isEmpty() || linea.startsWith("//") || linea.equals("}")) {
+            if (linea.isEmpty() || linea.startsWith("//") || linea.equals("}") || linea.equals("]") || linea.equals("[")) {
                 i++;
                 continue;
             }
@@ -483,8 +483,23 @@ public class InterfazGrafica extends JFrame implements ActionListener {
     }
 
     private int buscarFinBloque(String[] lineas, int inicio) {
+        int contador = 0;
+        for (int i = inicio; i < lineas.length; i++) {
+            String l = lineas[i].trim();
+            if (l.contains("[")) {
+                contador++;
+            }
+            if (l.contains("]")) {
+                contador--;
+                if (contador == 0) {
+                    return i;
+                }
+            }
+        }
+        // Compatibilidad por si se usa línea simple con ] o }
         for (int i = inicio + 1; i < lineas.length; i++) {
-            if (lineas[i].trim().equals("}")) {
+            String l = lineas[i].trim();
+            if (l.equals("]") || l.equals("}")) {
                 return i;
             }
         }
