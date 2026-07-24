@@ -1,10 +1,14 @@
 import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.util.List;
 import javax.swing.*;
 
 public class PanelAutomata extends JPanel {
     private Automata automata;
     private final int RADIO_NODO = 22;
+    private Thread hiloAnimacion;
+    private int pasosVisibles;
 
     public PanelAutomata() {
         setBackground(Color.WHITE);
@@ -17,6 +21,39 @@ public class PanelAutomata extends JPanel {
 
     public void setAutomata(Automata automata) {
         this.automata = automata;
+        if (hiloAnimacion != null && hiloAnimacion.isAlive()) {
+            hiloAnimacion.interrupt(); // Interrumpe y detiene el hilo de animación anterior
+        }
+
+        if (automata != null) {
+            pasosVisibles = 1;
+            int totalPasos = automata.getCaminoEstados().size();
+            
+            hiloAnimacion = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        while (pasosVisibles < totalPasos) {
+                            Thread.sleep(500); // Pausa de 500ms entre transiciones
+                            
+                            // Modificamos y redibujamos de manera segura en el EDT
+                            SwingUtilities.invokeLater(new Runnable() {
+                                @Override
+                                public void run() {
+                                    pasosVisibles++;
+                                    repaint();
+                                }
+                            });
+                        }
+                    } catch (InterruptedException ex) {
+                        // El hilo fue interrumpido (ej. al seleccionar otra línea)
+                    }
+                }
+            });
+            hiloAnimacion.start();
+        } else {
+            pasosVisibles = 0;
+        }
         repaint();
     }
 
@@ -45,22 +82,33 @@ public class PanelAutomata extends JPanel {
 
         // 1. Dibujar Transiciones
         for (Transicion t : transiciones) {
-            boolean visitada = caminoTransiciones.contains(t);
+            boolean visitada = false;
+            for (int i = 0; i < Math.min(pasosVisibles - 1, caminoTransiciones.size()); i++) {
+                if (caminoTransiciones.get(i).equals(t)) {
+                    visitada = true;
+                    break;
+                }
+            }
             dibujarTransicion(g2, t, visitada, esValida);
         }
 
-        // Si la línea falló, podemos tener transiciones implícitas de error al estado 'qe' o 'se'/'ee'/'de'
-        // Vamos a dibujarlas en color rojo si se recorrieron
-        for (Transicion t : caminoTransiciones) {
+        // Si la línea falló, dibujamos transiciones implícitas de error
+        for (int i = 0; i < Math.min(pasosVisibles - 1, caminoTransiciones.size()); i++) {
+            Transicion t = caminoTransiciones.get(i);
             if (!transiciones.contains(t)) {
-                // Es una transición implícita al estado de error
                 dibujarTransicion(g2, t, true, false);
             }
         }
 
         // 2. Dibujar Estados
         for (Estado e : estados) {
-            boolean visitado = caminoEstados.contains(e);
+            boolean visitado = false;
+            for (int i = 0; i < Math.min(pasosVisibles, caminoEstados.size()); i++) {
+                if (caminoEstados.get(i).equals(e)) {
+                    visitado = true;
+                    break;
+                }
+            }
             dibujarEstado(g2, e, visitado, esValida);
         }
     }
