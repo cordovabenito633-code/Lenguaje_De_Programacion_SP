@@ -1,3 +1,5 @@
+package mycompany.lenguaje;
+
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;

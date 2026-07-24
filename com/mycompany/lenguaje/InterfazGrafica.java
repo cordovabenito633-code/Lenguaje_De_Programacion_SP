@@ -1,11 +1,10 @@
+package mycompany.lenguaje;
 import java.awt.*;
 import java.awt.event.*;
 import java.io.File;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import javax.swing.*;
+import java.util.List;
 
 public class InterfazGrafica extends JFrame implements ActionListener {
     private JList<String> lista;
@@ -431,26 +430,51 @@ public class InterfazGrafica extends JFrame implements ActionListener {
 
     // ASIGNACIONES E IMPRESIONES
     private void procesarInstruccionSimple(String linea, StringBuilder consola) throws Exception {
+        linea = linea.trim();
+
         if (linea.toLowerCase().startsWith("imprimir") || linea.toLowerCase().startsWith("mostrar")) {
             String contenido = linea.replaceFirst("(?i)^(imprimir|mostrar)\\s*", "").trim();
             if (contenido.startsWith("(") && contenido.endsWith(")")) {
                 contenido = contenido.substring(1, contenido.length() - 1).trim();
             }
             Object res = evaluarExpresion(contenido);
-            consola.append(formatearResultado(res)).append("\n"); // SOLUCIÓN AL ERROR 3
-        } else if (linea.contains("=")) {
+            consola.append(formatearResultado(res)).append("\n");
+            return;
+        }
+
+        if (linea.contains("=")) {
             String[] partes = linea.split("=", 2);
             String izq = partes[0].trim();
             String der = partes[1].replace(";", "").trim();
 
             String[] palabrasIzq = izq.split("\\s+");
-            String nombreVar = palabrasIzq[palabrasIzq.length - 1];
 
-            Object valorEvaluado = evaluarExpresion(der);
-            memoriaVariables.put(nombreVar, valorEvaluado);
+            if (palabrasIzq.length > 1) {
+                String tipo = palabrasIzq[0];
+                String nombreVar = palabrasIzq[1];
+
+                if (tipo.equalsIgnoreCase("Numero")) {
+                    if (der.startsWith("\"") || der.startsWith("'")) {
+                        throw new Exception("Error: 'Numero' no puede recibir comillas.");
+                    }
+                    memoriaVariables.put(nombreVar, Integer.parseInt(evaluarExpresion(der).toString()));
+                } else if (tipo.equalsIgnoreCase("Cadena")) {
+                    if (!der.startsWith("\"") || !der.endsWith("\"")) {
+                        throw new Exception("Error: 'Cadena' debe ir con comillas dobles (\"\").");
+                    }
+                    memoriaVariables.put(nombreVar, der.substring(1, der.length() - 1));
+                } else if (tipo.equalsIgnoreCase("Booleano")) {
+                    if (der.equalsIgnoreCase("verdadero")) {
+                        memoriaVariables.put(nombreVar, true);
+                    } else if (der.equalsIgnoreCase("falso")) {
+                        memoriaVariables.put(nombreVar, false);
+                    } else {
+                        throw new Exception("Error: 'Booleano' solo acepta 'verdadero' o 'falso'.");
+                    }
+                }
+            }
         }
     }
-
     // CONDICIONES BOOLEANAS
     private boolean evaluarCondicionBooleana(String expr) throws Exception {
         for (Map.Entry<String, Object> entry : memoriaVariables.entrySet()) {
@@ -621,7 +645,12 @@ public class InterfazGrafica extends JFrame implements ActionListener {
     }
 
     public static void main(String[] args) {
-        InterfazGrafica v = new InterfazGrafica();
-        v.setVisible(true);
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                InterfazGrafica v = new InterfazGrafica();
+                v.setVisible(true);
+            }
+        });
     }
 }

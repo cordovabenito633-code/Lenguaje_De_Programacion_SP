@@ -1,5 +1,5 @@
 
-package com.mycompany.lenguaje;
+package mycompany.lenguaje;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Font;
