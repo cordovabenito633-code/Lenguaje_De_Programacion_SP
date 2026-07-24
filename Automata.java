@@ -73,6 +73,10 @@ public class Automata {
             tipoDFA = "Asignacion";
             construirDFAAsignacion();
             ejecutarDFA(tokens);
+        } else if (primerToken.equals("[") || primerToken.equals("]")) {
+            tipoDFA = "Bloque";
+            construirDFABloque(primerToken);
+            ejecutarDFA(tokens);
         } else {
             tipoDFA = "Desconocido";
             construirDFADesconocido(primerToken);
@@ -82,8 +86,8 @@ public class Automata {
 
     private List<String> tokenizar(String linea) {
         List<String> tokens = new ArrayList<>();
-        // Expresión regular para separar palabras clave, operadores relacionales, números, variables, paréntesis, asignación y signos de puntuación
-        Pattern pattern = Pattern.compile("Numero|Cadena|SiNo|Si|Mientras|Para|Hasta|Hacer|Logico|Imprimir|Mostrar|verdadero|vardadero|falso|y|o|\"[^\"]*\"|[a-zA-Z_][a-zA-Z0-9_]*|-?\\d+(\\.\\d+)?|==|!=|<=|>=|<|>|=|\\+|\\-|\\*|/|\\(|\\)|:|\\S", Pattern.CASE_INSENSITIVE);
+        // Expresión regular para separar palabras clave, operadores relacionales, números, variables, paréntesis, corchetes, asignación y signos de puntuación
+        Pattern pattern = Pattern.compile("Numero|Cadena|SiNo|Si|Mientras|Para|Hasta|Hacer|Logico|Imprimir|Mostrar|verdadero|vardadero|falso|y|o|\"[^\"]*\"|[a-zA-Z_][a-zA-Z0-9_]*|-?\\d+(\\.\\d+)?|==|!=|<=|>=|<|>|=|\\+|\\-|\\*|/|\\(|\\)|\\[|\\]|:|\\S", Pattern.CASE_INSENSITIVE);
         Matcher matcher = pattern.matcher(linea);
         while (matcher.find()) {
             tokens.add(matcher.group());
@@ -104,13 +108,15 @@ public class Automata {
         if (lower.equals("hasta")) return "Hasta";
         if (lower.equals("hacer")) return "Hacer";
         if (lower.equals("logico")) return "Logico";
-        if (lower.equals("imprimir") || lower.equals("mostrar")) return "imprimir";
+        if (lower.equals("imprimir") || lower.equals("mostrar")) return "Imprimir";
         if (lower.equals("verdadero") || lower.equals("vardadero")) return "BooleanLiteral";
         if (lower.equals("falso")) return "BooleanLiteral";
         if (lower.equals("y") || lower.equals("o")) return lower;
         if (valor.equals("=")) return "=";
         if (valor.equals("(")) return "(";
         if (valor.equals(")")) return ")";
+        if (valor.equals("[")) return "[";
+        if (valor.equals("]")) return "]";
         if (valor.equals(":")) return ":";
         if (valor.equals("+") || valor.equals("-") || valor.equals("*") || valor.equals("/")) return "operador";
         if (valor.equals("<") || valor.equals(">") || valor.equals("<=") || valor.equals(">=")) return "relacion";
@@ -125,14 +131,14 @@ public class Automata {
     // ----------------------------------------------------
 
     private void construirDFAPara() {
-        Estado p0 = new Estado("p0", true, false, false, 60, 120);
-        Estado p1 = new Estado("p1", false, false, false, 150, 120);
-        Estado p2 = new Estado("p2", false, false, false, 240, 120);
-        Estado p3 = new Estado("p3", false, false, false, 330, 120);
-        Estado p4 = new Estado("p4", false, false, false, 420, 120);
-        Estado p5 = new Estado("p5", false, false, false, 510, 120);
-        Estado p6 = new Estado("p6", false, true, false, 600, 120); // Aceptación
-        Estado pe = new Estado("pe", false, false, true, 330, 220); // Error
+        Estado p0 = new Estado("p0", true, false, false, 50, 100);
+        Estado p1 = new Estado("p1", false, false, false, 150, 100);
+        Estado p2 = new Estado("p2", false, false, false, 250, 100);
+        Estado p3 = new Estado("p3", false, false, false, 350, 100);
+        Estado p4 = new Estado("p4", false, false, false, 450, 100);
+        Estado p5 = new Estado("p5", false, true, false, 550, 100); // Aceptación
+        Estado p6 = new Estado("p6", false, true, false, 650, 100); // Aceptación con [
+        Estado pe = new Estado("pe", false, false, true, 350, 200); // Error
 
         estados.add(p0);
         estados.add(p1);
@@ -144,14 +150,12 @@ public class Automata {
         estados.add(pe);
 
         transiciones.add(new Transicion(p0, p1, "Para"));
-        transiciones.add(new Transicion(p1, p2, "NumeroLiteral"));
-        transiciones.add(new Transicion(p1, p2, "id"));
+        transiciones.add(new Transicion(p1, p2, "id")); // Requiere variable declarada previamente
         transiciones.add(new Transicion(p2, p3, "Hasta"));
         transiciones.add(new Transicion(p3, p4, "NumeroLiteral"));
         transiciones.add(new Transicion(p3, p4, "id"));
         transiciones.add(new Transicion(p4, p5, "Hacer"));
-        transiciones.add(new Transicion(p5, p6, ":"));
-        transiciones.add(new Transicion(p5, p6, ""));
+        transiciones.add(new Transicion(p5, p6, "["));
     }
 
     private void construirDFALogico() {
@@ -246,7 +250,7 @@ public class Automata {
         estados.add(ie);
 
         // Transición inicial
-        transiciones.add(new Transicion(i0, i1, "imprimir"));
+        transiciones.add(new Transicion(i0, i1, "Imprimir"));
 
         // Rama con paréntesis: imprimir ( expr )
         transiciones.add(new Transicion(i1, i2_par, "("));
@@ -289,7 +293,7 @@ public class Automata {
         transiciones.add(new Transicion(r3, r2, "operador")); // Permite a = b + 1
     }
     private void construirDFAMientras() {
-        // m0 (inicio) -> m1 (mientras) -> m2 (() -> m3 (izq) -> m4 (relacion/igual/diferente) -> m5 (der) -> m6 ())
+        // m0 (inicio) -> m1 (mientras) -> m2 (() -> m3 (izq) -> m4 (relacion/igual/diferente) -> m5 (der) -> m6 () -> m7 ([)
         Estado m0 = new Estado("m0", true, false, false, 50, 100);
         Estado m1 = new Estado("m1", false, false, false, 130, 100);
         Estado m2 = new Estado("m2", false, false, false, 210, 100);
@@ -297,6 +301,7 @@ public class Automata {
         Estado m4 = new Estado("m4", false, false, false, 370, 100);
         Estado m5 = new Estado("m5", false, false, false, 450, 100);
         Estado m6 = new Estado("m6", false, true, false, 530, 100); // Estado de Aceptación
+        Estado m7 = new Estado("m7", false, true, false, 610, 100); // Aceptación con [
         Estado me = new Estado("me", false, false, true, 290, 200);  // Estado de Error
 
         estados.add(m0);
@@ -306,10 +311,11 @@ public class Automata {
         estados.add(m4);
         estados.add(m5);
         estados.add(m6);
+        estados.add(m7);
         estados.add(me);
 
         // Inicio y apertura de paréntesis
-        transiciones.add(new Transicion(m0, m1, "mientras"));
+        transiciones.add(new Transicion(m0, m1, "Mientras"));
         transiciones.add(new Transicion(m1, m2, "("));
 
         // Lado izquierdo de la condición (m2 -> m3)
@@ -327,9 +333,11 @@ public class Automata {
         transiciones.add(new Transicion(m4, m5, "NumeroLiteral"));
         transiciones.add(new Transicion(m4, m5, "CadenaLiteral"));
 
-        // Cierre de paréntesis
+        // Cierre de paréntesis y apertura de corchete opcional
         transiciones.add(new Transicion(m5, m6, ")"));
+        transiciones.add(new Transicion(m6, m7, "["));
     }
+
     private void construirDFASi() {
         // s0 (inicio) -> s1 (Si) -> s2_par (abrió paréntesis) o s2_nopar (id/número)
         Estado s0 = new Estado("s0", true, false, false, 50, 120);
@@ -341,6 +349,7 @@ public class Automata {
         Estado s4_par = new Estado("s4_p", false, false, false, 370, 60);
         Estado s5_par = new Estado("s5_p", false, false, false, 450, 60);
         Estado s6_par = new Estado("s6_p", false, true, false, 530, 120); // Aceptación
+        Estado s7_par = new Estado("s7_p", false, true, false, 610, 120); // Aceptación con [
         
         // Rama sin paréntesis
         Estado s2_nopar = new Estado("s2", false, false, false, 210, 180);
@@ -356,6 +365,7 @@ public class Automata {
         estados.add(s4_par);
         estados.add(s5_par);
         estados.add(s6_par);
+        estados.add(s7_par);
         estados.add(s2_nopar);
         estados.add(s3_nopar);
         estados.add(s4_nopar);
@@ -372,6 +382,7 @@ public class Automata {
         transiciones.add(new Transicion(s4_par, s5_par, "id"));
         transiciones.add(new Transicion(s4_par, s5_par, "NumeroLiteral"));
         transiciones.add(new Transicion(s5_par, s6_par, ")"));
+        transiciones.add(new Transicion(s6_par, s7_par, "["));
 
         // Rama sin paréntesis
         transiciones.add(new Transicion(s1, s2_nopar, "id"));
@@ -379,18 +390,34 @@ public class Automata {
         transiciones.add(new Transicion(s2_nopar, s3_nopar, "relacion"));
         transiciones.add(new Transicion(s3_nopar, s4_nopar, "id"));
         transiciones.add(new Transicion(s3_nopar, s4_nopar, "NumeroLiteral"));
+        transiciones.add(new Transicion(s4_nopar, s7_par, "["));
     }
 
     private void construirDFASiNo() {
         Estado e0 = new Estado("e0", true, false, false, 80, 100);
         Estado e1 = new Estado("e1", false, true, false, 280, 100); // Aceptación
+        Estado e2 = new Estado("e2", false, true, false, 420, 100); // Aceptación con [
         Estado ee = new Estado("ee", false, false, true, 180, 200);  // Error
 
         estados.add(e0);
         estados.add(e1);
+        estados.add(e2);
         estados.add(ee);
 
         transiciones.add(new Transicion(e0, e1, "SiNo"));
+        transiciones.add(new Transicion(e1, e2, "["));
+    }
+
+    private void construirDFABloque(String bracket) {
+        Estado b0 = new Estado("b0", true, false, false, 150, 100);
+        Estado b1 = new Estado("b1", false, true, false, 350, 100); // Aceptación
+        Estado be = new Estado("be", false, false, true, 250, 200);  // Error
+
+        estados.add(b0);
+        estados.add(b1);
+        estados.add(be);
+
+        transiciones.add(new Transicion(b0, b1, bracket));
     }
 
     private void construirDFADesconocido(String primerToken) {
