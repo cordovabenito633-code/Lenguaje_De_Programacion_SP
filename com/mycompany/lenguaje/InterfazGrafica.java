@@ -1,7 +1,6 @@
-package mycompany.lenguaje;
 import java.awt.*;
 import java.awt.event.*;
-import java.io.*;
+import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.ArrayList;
@@ -116,40 +115,41 @@ public class InterfazGrafica extends JFrame implements ActionListener {
     }
 
     // ----------------------------------------------------
-    //              ACCIONES DE LOS BOTONES
+    // ACCIONES DE LOS BOTONES
     // ----------------------------------------------------
 
     private void accionAnalizar() {
         String texto = areaTexto.getText().trim();
         if (texto.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Escribe al menos una línea antes de analizar.", "Advertencia", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Escribe al menos una línea antes de analizar.", "Advertencia",
+                    JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        // Limpiamos las lineas del texto anterior para analizar el nuevo
+        btnAnalizar.setEnabled(false);
         modeloLista.clear();
         lineasAnalizadas.clear();
         automataActual = null;
+        panelAutomata.setAutomata(null);
 
-        String[] lineas = texto.split("\\r?\\n");
-        for (int i = 0; i < lineas.length; i++) {
-            String linea = lineas[i].trim();
-            if (linea.isEmpty()) {
-                continue;
-            }
-            // Guardamos solo la línea; el automata se crea cuando se selecciona
-            lineasAnalizadas.add(linea);
-            modeloLista.addElement("Línea " + (i + 1) + ": " + linea);
-        }
+        TareasInterfazHilos.Analizar tarea = new TareasInterfazHilos.Analizar(this, texto);
+        Thread hilo = new Thread(tarea);
+        hilo.start();
+    }
 
-        if (lineasAnalizadas.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "No hay líneas válidas para analizar.", "Advertencia", JOptionPane.WARNING_MESSAGE);
+    void finalizarAnalisis(List<String> nuevasLineas, List<String> elementosLista, boolean sinLineasValidas) {
+        if (sinLineasValidas) {
+            JOptionPane.showMessageDialog(this, "No hay líneas válidas para analizar.", "Advertencia",
+                    JOptionPane.WARNING_MESSAGE);
             panelAutomata.setAutomata(null);
-            return;
+        } else {
+            lineasAnalizadas.addAll(nuevasLineas);
+            for (String elemento : elementosLista) {
+                modeloLista.addElement(elemento);
+            }
+            lista.setSelectedIndex(0);
         }
-
-        // Seleccionamos la primera línea para que se construya y muestre su automata
-        lista.setSelectedIndex(0);
+        btnAnalizar.setEnabled(true);
     }
 
     private void accionLimpiar() {
@@ -170,19 +170,27 @@ public class InterfazGrafica extends JFrame implements ActionListener {
         }
     }
     // ----------------------------------------------------
-    //    EJECUCIÓN LÍNEA POR LÍNEA DEL ÁREA DE TEXTO
+    // EJECUCIÓN LÍNEA POR LÍNEA DEL ÁREA DE TEXTO
     // ----------------------------------------------------
 
     private void accionEjecutar() {
         String contenidoCompleto = areaTexto.getText().trim();
         if (contenidoCompleto.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "El área de texto está vacía.", "Atención", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this, "El área de texto está vacía.", "Atención",
+                    JOptionPane.WARNING_MESSAGE);
             return;
         }
 
+        btnEjecutar.setEnabled(false);
+
+        TareasInterfazHilos.Ejecutar tarea = new TareasInterfazHilos.Ejecutar(this, contenidoCompleto);
+        Thread hilo = new Thread(tarea);
+        hilo.start();
+    }
+
+    String ejecutarPseudocodigo(String contenidoCompleto) {
         memoriaVariables.clear();
         StringBuilder consola = new StringBuilder();
-
         String[] lineas = contenidoCompleto.split("\\r?\\n");
 
         try {
@@ -195,14 +203,22 @@ public class InterfazGrafica extends JFrame implements ActionListener {
             consola.append("Ejecución finalizada con éxito.");
         }
 
-        // LLAMADA A LA VENTANA ESTÉTICA DE RESULTADOS
-        mostrarConsolaEstetico(consola.toString());
+        return consola.toString();
     }
 
-    // Ventana Emergente Personalizada y Estética
+    void finalizarEjecucion(String resultado) {
+        mostrarConsolaEstetico(resultado);
+        btnEjecutar.setEnabled(true);
+    }
+
+    // Ventana Emergente Personalizada y Estética (Adaptable)
     private void mostrarConsolaEstetico(String textoResultado) {
-        JDialog dialog = new JDialog(this, "Resultado de la Ejecución", true);
-        dialog.setSize(480, 380);
+        String textoLimpio = textoResultado.trim();
+        boolean esError = textoLimpio.toLowerCase().contains("[error");
+
+        JDialog dialog = new JDialog(this, esError ? "Error de Ejecución" : "Resultado de la Ejecución", true);
+        dialog.setSize(520, 380);
+        dialog.setMinimumSize(new Dimension(450, 300));
         dialog.setLocationRelativeTo(this);
         dialog.setLayout(new BorderLayout());
 
@@ -210,16 +226,17 @@ public class InterfazGrafica extends JFrame implements ActionListener {
         // A. ENCABEZADO MODERNO
         // -----------------------------------------------------------
         JPanel panelHeader = new JPanel(new BorderLayout());
-        panelHeader.setBackground(new Color(30, 32, 44)); // Tema oscuro elegante
-        panelHeader.setBorder(BorderFactory.createEmptyBorder(18, 22, 18, 22));
+        Color colorHeader = esError ? new Color(127, 29, 29) : new Color(30, 32, 44);
+        panelHeader.setBackground(colorHeader);
+        panelHeader.setBorder(BorderFactory.createEmptyBorder(16, 20, 16, 20));
 
-        JLabel lblTitulo = new JLabel("Salida de Ejecución");
+        JLabel lblTitulo = new JLabel(esError ? "Error de Ejecución" : "Salida de Ejecución");
         lblTitulo.setFont(new Font("Segoe UI", Font.BOLD, 18));
         lblTitulo.setForeground(Color.WHITE);
 
-        JLabel lblSubtitulo = new JLabel("Ejecución completada con éxito");
+        JLabel lblSubtitulo = new JLabel(esError ? "Se detectó un problema durante la ejecución" : "Ejecución completada con éxito");
         lblSubtitulo.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        lblSubtitulo.setForeground(new Color(160, 170, 200));
+        lblSubtitulo.setForeground(esError ? new Color(254, 202, 202) : new Color(160, 170, 200));
 
         JPanel panelTitulos = new JPanel(new GridLayout(2, 1, 0, 4));
         panelTitulos.setOpaque(false);
@@ -229,26 +246,25 @@ public class InterfazGrafica extends JFrame implements ActionListener {
         panelHeader.add(panelTitulos, BorderLayout.CENTER);
 
         // -----------------------------------------------------------
-        // B. CUERPO PRINCIPAL (TARJETA CENTRADA)
+        // B. CUERPO PRINCIPAL (ADAPTABLE CON WRAP)
         // -----------------------------------------------------------
-        JPanel panelCentro = new JPanel(new GridBagLayout());
-        panelCentro.setBackground(new Color(243, 244, 246)); // Fondo gris suave
+        JPanel panelCentro = new JPanel(new BorderLayout());
+        panelCentro.setBackground(new Color(243, 244, 246));
+        panelCentro.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
 
-        String textoLimpio = textoResultado.trim();
-        boolean esResultadoUnico = textoLimpio.split("\n").length == 1;
+        boolean esResultadoUnicoCorto = !esError && textoLimpio.split("\n").length == 1 && textoLimpio.length() <= 20;
 
-        if (esResultadoUnico) {
-            // TARJETA TIPO "DASHBOARD" PARA UN SOLO VALOR (ej. 5, "Hola", etc.)
+        if (esResultadoUnicoCorto) {
+            // TARJETA TIPO "DASHBOARD" PARA UN SOLO VALOR CORTO (ej. 5, "Hola")
             JPanel tarjeta = new JPanel(new BorderLayout());
             tarjeta.setBackground(Color.WHITE);
             tarjeta.setBorder(BorderFactory.createCompoundBorder(
                     BorderFactory.createLineBorder(new Color(225, 228, 232), 1, true),
-                    BorderFactory.createEmptyBorder(20, 40, 20, 40)
-            ));
+                    BorderFactory.createEmptyBorder(20, 30, 20, 30)));
 
             JLabel lblValor = new JLabel(textoLimpio, SwingConstants.CENTER);
-            lblValor.setFont(new Font("Segoe UI", Font.BOLD, 42)); // Número/Texto Gigante
-            lblValor.setForeground(new Color(79, 70, 229)); // Color Índigo Moderno
+            lblValor.setFont(new Font("Segoe UI", Font.BOLD, 36));
+            lblValor.setForeground(new Color(79, 70, 229));
 
             JLabel lblTag = new JLabel("VALOR RETORNADO", SwingConstants.CENTER);
             lblTag.setFont(new Font("Segoe UI", Font.BOLD, 10));
@@ -257,37 +273,39 @@ public class InterfazGrafica extends JFrame implements ActionListener {
             tarjeta.add(lblTag, BorderLayout.NORTH);
             tarjeta.add(lblValor, BorderLayout.CENTER);
 
-            panelCentro.add(tarjeta);
+            panelCentro.add(tarjeta, BorderLayout.CENTER);
         } else {
-            // VISTA TIPO CONSOLA PARA MÚLTIPLES LÍNEAS DE SALIDA
-            JTextArea areaConsola = new JTextArea(textoResultado);
+            // ÁREA DE TEXTO MULTILÍNEA O MENSAJE DE ERROR CON WRAP AUTOMÁTICO
+            JTextArea areaConsola = new JTextArea(textoLimpio);
             areaConsola.setEditable(false);
+            areaConsola.setLineWrap(true);
+            areaConsola.setWrapStyleWord(true);
             areaConsola.setFont(new Font("Consolas", Font.PLAIN, 14));
             areaConsola.setBackground(Color.WHITE);
-            areaConsola.setForeground(new Color(31, 41, 55));
-            areaConsola.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+            areaConsola.setForeground(esError ? new Color(185, 28, 28) : new Color(31, 41, 55));
+            areaConsola.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
 
             JScrollPane scroll = new JScrollPane(areaConsola);
-            scroll.setPreferredSize(new Dimension(400, 180));
-            scroll.setBorder(BorderFactory.createLineBorder(new Color(229, 231, 235), 1));
+            scroll.setBorder(BorderFactory.createLineBorder(esError ? new Color(252, 165, 165) : new Color(229, 231, 235), 1));
 
-            panelCentro.add(scroll);
+            panelCentro.add(scroll, BorderLayout.CENTER);
         }
 
         // -----------------------------------------------------------
         // C. PIE DE PÁGINA Y BOTÓN
         // -----------------------------------------------------------
-        JPanel panelFooter = new JPanel(new FlowLayout(FlowLayout.RIGHT, 20, 14));
+        JPanel panelFooter = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 12));
         panelFooter.setBackground(Color.WHITE);
         panelFooter.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(229, 231, 235)));
 
         JButton btnCerrar = new JButton("Aceptar");
         btnCerrar.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        btnCerrar.setBackground(new Color(79, 70, 229));
+        Color colorBoton = esError ? new Color(220, 38, 38) : new Color(79, 70, 229);
+        btnCerrar.setBackground(colorBoton);
         btnCerrar.setForeground(Color.WHITE);
         btnCerrar.setFocusPainted(false);
         btnCerrar.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btnCerrar.setBorder(BorderFactory.createEmptyBorder(8, 24, 8, 24));
+        btnCerrar.setBorder(BorderFactory.createEmptyBorder(8, 22, 8, 22));
         btnCerrar.addActionListener(e -> dialog.dispose());
 
         panelFooter.add(btnCerrar);
@@ -298,6 +316,7 @@ public class InterfazGrafica extends JFrame implements ActionListener {
 
         dialog.setVisible(true);
     }
+
     // SOLUCIÓN AL ERROR 1: Método maestro para bloques recursivos
     private int ejecutarBloque(String[] lineas, int inicio, int fin, StringBuilder consola) throws Exception {
         int i = inicio;
@@ -325,27 +344,54 @@ public class InterfazGrafica extends JFrame implements ActionListener {
     private Object evaluarExpresion(String expr) throws Exception {
         expr = expr.trim();
 
+        // 1. Literal de cadena directo: "hola" o 'hola'
         if ((expr.startsWith("\"") && expr.endsWith("\"")) || (expr.startsWith("'") && expr.endsWith("'"))) {
             return expr.substring(1, expr.length() - 1);
         }
 
+        // 2. Si la expresión es exactamente el nombre de una variable existente en memoria
+        if (memoriaVariables.containsKey(expr)) {
+            return memoriaVariables.get(expr);
+        }
+
+        // 3. Reemplazar variables registradas en expresiones compuestas
+        String exprReemplazada = expr;
         for (Map.Entry<String, Object> entry : memoriaVariables.entrySet()) {
             String var = entry.getKey();
             Object val = entry.getValue();
-            expr = expr.replaceAll("\\b" + var + "\\b", val.toString());
-        }
-
-        if ((expr.startsWith("\"") && expr.endsWith("\"")) || (expr.startsWith("'") && expr.endsWith("'"))) {
-            return expr.substring(1, expr.length() - 1);
-        }
-
-        try {
-            return evaluarAritmetica(expr);
-        } catch (Exception e) {
-            if (memoriaVariables.containsKey(expr)) {
-                return memoriaVariables.get(expr);
+            if (val instanceof String) {
+                exprReemplazada = exprReemplazada.replaceAll("\\b" + var + "\\b", "\"" + val + "\"");
+            } else {
+                exprReemplazada = exprReemplazada.replaceAll("\\b" + var + "\\b", val.toString());
             }
-            return expr;
+        }
+
+        // 4. Si tras reemplazar variables queda un literal de cadena completo entre comillas
+        if ((exprReemplazada.startsWith("\"") && exprReemplazada.endsWith("\"")) || (exprReemplazada.startsWith("'") && exprReemplazada.endsWith("'"))) {
+            return exprReemplazada.substring(1, exprReemplazada.length() - 1);
+        }
+
+        // 5. Concatenación de cadenas (ej. "Resultado: " + x)
+        if (exprReemplazada.contains("\"") && exprReemplazada.contains("+")) {
+            String[] partes = exprReemplazada.split("\\+");
+            StringBuilder sb = new StringBuilder();
+            for (String p : partes) {
+                p = p.trim();
+                if ((p.startsWith("\"") && p.endsWith("\"")) || (p.startsWith("'") && p.endsWith("'"))) {
+                    sb.append(p.substring(1, p.length() - 1));
+                } else {
+                    Object valP = evaluarExpresion(p);
+                    sb.append(formatearResultado(valP));
+                }
+            }
+            return sb.toString();
+        }
+
+        // 6. Intentar evaluación aritmética para números
+        try {
+            return evaluarAritmetica(exprReemplazada);
+        } catch (Exception e) {
+            throw new Exception("La expresión '" + expr + "' no es válida. Las cadenas deben llevar comillas (\") y las variables deben estar previamente definidas.");
         }
     }
 
@@ -358,7 +404,8 @@ public class InterfazGrafica extends JFrame implements ActionListener {
         int finBloqueSi = buscarFinBloque(lineas, indiceActual);
         int siguienteLinea = finBloqueSi + 1;
 
-        boolean tieneSino = (siguienteLinea < lineas.length) && lineas[siguienteLinea].trim().toLowerCase().startsWith("sino");
+        boolean tieneSino = (siguienteLinea < lineas.length)
+                && lineas[siguienteLinea].trim().toLowerCase().startsWith("sino");
         int finBloqueSino = tieneSino ? buscarFinBloque(lineas, siguienteLinea) : finBloqueSi;
 
         if (condicion) {
@@ -414,16 +461,20 @@ public class InterfazGrafica extends JFrame implements ActionListener {
 
         if (expr.contains(">=")) {
             String[] p = expr.split(">=");
-            return Double.parseDouble(evaluarExpresion(p[0]).toString()) >= Double.parseDouble(evaluarExpresion(p[1]).toString());
+            return Double.parseDouble(evaluarExpresion(p[0]).toString()) >= Double
+                    .parseDouble(evaluarExpresion(p[1]).toString());
         } else if (expr.contains("<=")) {
             String[] p = expr.split("<=");
-            return Double.parseDouble(evaluarExpresion(p[0]).toString()) <= Double.parseDouble(evaluarExpresion(p[1]).toString());
+            return Double.parseDouble(evaluarExpresion(p[0]).toString()) <= Double
+                    .parseDouble(evaluarExpresion(p[1]).toString());
         } else if (expr.contains(">")) {
             String[] p = expr.split(">");
-            return Double.parseDouble(evaluarExpresion(p[0]).toString()) > Double.parseDouble(evaluarExpresion(p[1]).toString());
+            return Double.parseDouble(evaluarExpresion(p[0]).toString()) > Double
+                    .parseDouble(evaluarExpresion(p[1]).toString());
         } else if (expr.contains("<")) {
             String[] p = expr.split("<");
-            return Double.parseDouble(evaluarExpresion(p[0]).toString()) < Double.parseDouble(evaluarExpresion(p[1]).toString());
+            return Double.parseDouble(evaluarExpresion(p[0]).toString()) < Double
+                    .parseDouble(evaluarExpresion(p[1]).toString());
         } else if (expr.contains("==")) {
             String[] p = expr.split("==");
             return evaluarExpresion(p[0]).toString().equals(evaluarExpresion(p[1]).toString());
@@ -540,23 +591,36 @@ public class InterfazGrafica extends JFrame implements ActionListener {
         }
         return obj.toString();
     }
+
     private void accionGuardar() {
         JFileChooser chooser = new JFileChooser();
         int r = chooser.showSaveDialog(this);
-        if (r == JFileChooser.APPROVE_OPTION) {
-            File f = chooser.getSelectedFile();
-            try (BufferedWriter w = new BufferedWriter(new FileWriter(f))) {
-                w.write(areaTexto.getText());
-                JOptionPane.showMessageDialog(this, "Pseudocódigo guardado correctamente.", "Guardar",
-                        JOptionPane.INFORMATION_MESSAGE);
-            } catch (IOException ex) {
-                JOptionPane.showMessageDialog(this, "Error al guardar el archivo: " + ex.getMessage(), "Error",
-                        JOptionPane.ERROR_MESSAGE);
-            }
+        if (r != JFileChooser.APPROVE_OPTION) {
+            return;
         }
+
+        File archivo = chooser.getSelectedFile();
+        String contenido = areaTexto.getText();
+
+        btnGuardar.setEnabled(false);
+
+        TareasInterfazHilos.Guardar tarea = new TareasInterfazHilos.Guardar(this, archivo, contenido);
+        Thread hilo = new Thread(tarea);
+        hilo.start();
     }
 
-    public static void main(String[] args){
+    void finalizarGuardado(String error) {
+        if (error == null) {
+            JOptionPane.showMessageDialog(this, "Pseudocódigo guardado correctamente.", "Guardar",
+                    JOptionPane.INFORMATION_MESSAGE);
+        } else {
+            JOptionPane.showMessageDialog(this, "Error al guardar el archivo: " + error, "Error",
+                    JOptionPane.ERROR_MESSAGE);
+        }
+        btnGuardar.setEnabled(true);
+    }
+
+    public static void main(String[] args) {
         InterfazGrafica v = new InterfazGrafica();
         v.setVisible(true);
     }
